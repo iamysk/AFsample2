@@ -1,2 +1,2 @@
 # AFconformer
-[Link to My Video](20240226_mov.mp4)
+![20240226_mov.gif](20240226_mov.gif)
