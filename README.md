@@ -3,17 +3,47 @@
 
 ## Introduction
 
-Briefly introduce what AFsample2 is and what problem it aims to solve or what purpose it serves. Provide an overview of its features and functionalities. Mention any key technologies or frameworks used in the project.
+AFsample2 
 
 ## Installation
 
 Provide instructions on how to install AFsample2, including any dependencies that need to be installed beforehand. You may include code snippets or commands for package managers like pip or npm.
 
 ## Usage
+
+### Ensemble generation
 ```bash
 $ pip install af_sample2
+$ sh AF_multitemplate/abl_msa.sh --models_to_use <models_to_use>        # default=model_1 
+                                 --fasta_paths <fasta_path>         
+                                 --output_dir <output_dir> 
+                                 --msa_rand_fraction <Random masking>   # default=0.1
+                                 --flagfile <flag_file>                 # default = AFmultitemplate/monomer_full_dbs.flag
+
 ```
 Explain how to use AFsample2. Provide examples or code snippets to demonstrate its usage. Include any configuration options or parameters that can be customized by the user.
+
+### Diversity analysis
+```bash
+$ pip install af_sample2
+$ sh AF_multitemplate/abl_msa.sh --models_to_use <models_to_use>        # default=model_1 
+                                 --fasta_paths <fasta_path>         
+                                 --output_dir <output_dir> 
+                                 --msa_rand_fraction <Random masking>   # default=0.1
+                                 --flagfile <flag_file>                 # default = AFmultitemplate/monomer_full_dbs.flag
+
+```
+
+### Clustering and reference-free state determiantion
+```bash
+$ pip install af_sample2
+$ sh AF_multitemplate/abl_msa.sh --models_to_use <models_to_use>        # default=model_1 
+                                 --fasta_paths <fasta_path>         
+                                 --output_dir <output_dir> 
+                                 --msa_rand_fraction <Random masking>   # default=0.1
+                                 --flagfile <flag_file>                 # default = AFmultitemplate/monomer_full_dbs.flag
+
+```
 
 ## How to Cite
 
