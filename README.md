@@ -20,12 +20,13 @@ conda env create -n <env_name> --file=environment.yaml
 conda activate <env_name>
 python -m pip install -r requirements.txt
 ```
-3. Make sure that all sequence databases are available. Follow the official AlphaFold guide [here](https://docs.anaconda.com/free/miniconda/miniconda-install/).
+3. Make sure that all sequence databases are available at ```<data_path>```. Follow the official AlphaFold guide [here](https://docs.anaconda.com/free/miniconda/miniconda-install/) to set up databases. 
 ```bash
-$ cd scripts
-$ chmod +x download_all_data.sh
-$ ./download_all_data.sh <data_path> reduced_dbs
+cd scripts
+chmod +x download_all_data.sh
+./download_all_data.sh <data_path> reduced_dbs
 ```
+
 4. Install Rosetta suite for clustering tasks ([Download link](https://en.wikipedia.org/wiki/Tar_(computing))). Make sure that a C++ compiler is installed. 
 
 ```bash
@@ -33,9 +34,9 @@ $ ./download_all_data.sh <data_path> reduced_dbs
 $ sudo apt-get install build-essential      # To install C++ compilers
 
 ## Unzip tarball and compile
-$ tar -xvzf rosetta[releasenumber].tar.gz
-$ cd rosetta*/main/source
-$ ./scons.py -j <num_cores> mode=release bin/rosetta_scripts.mpi.linuxgccrelease       # Significiantly fast with multithreading
+tar -xvzf rosetta[releasenumber].tar.gz
+cd rosetta*/main/source
+./scons.py -j <num_cores> mode=release bin/rosetta_scripts.mpi.linuxgccrelease       # Significiantly fast with multithreading
 
 Refer to this [guide](https://new.rosettacommons.org/demos/latest/tutorials/install_build/install_build#installing-rosetta) for further details.
 ```
@@ -47,8 +48,8 @@ Step-by-step instructions to (1) generate model ensembles (2) Analyze diversity 
 ### Ensemble generation
 Follow the steps to generate a diverse conformational ensemble for a given ```<fasta_path>```. 
 ```bash
-$ pip install af_sample2
-$ sh AF_multitemplate/abl_msa.sh --models_to_use <models_to_use>        # default=model_1 
+pip install af_sample2
+python AF_multitemplate/run_alphafold.py --models_to_use <models_to_use>        # default=model_1 
                                  --fasta_paths <fasta_path>         
                                  --output_dir <output_dir> 
                                  --msa_rand_fraction <Random masking>   # default=0.1
@@ -60,7 +61,7 @@ Explain how to use AFsample2. Provide examples or code snippets to demonstrate i
 ### Diversity analysis
 ```bash
 $ pip install af_sample2
-$ sh AF_multitemplate/abl_msa.sh --models_to_use <models_to_use>        # default=model_1 
+$ python AF_multitemplate/abl_msa.sh --models_to_use <models_to_use>        # default=model_1 
                                  --fasta_paths <fasta_path>         
                                  --output_dir <output_dir> 
                                  --msa_rand_fraction <Random masking>   # default=0.1
@@ -71,11 +72,11 @@ $ sh AF_multitemplate/abl_msa.sh --models_to_use <models_to_use>        # defaul
 ### Clustering and reference-free state determiantion
 ```bash
 $ pip install af_sample2
-$ sh AF_multitemplate/abl_msa.sh --models_to_use <models_to_use>        # default=model_1 
-                                 --fasta_paths <fasta_path>         
-                                 --output_dir <output_dir> 
-                                 --msa_rand_fraction <Random masking>   # default=0.1
-                                 --flagfile <flag_file>                 # default = AFmultitemplate/monomer_full_dbs.flag
+$ sh AF_multitemplate/run_alphafold.py --models_to_use <models_to_use>        # default=model_1 
+                                    --fasta_paths <fasta_path>         
+                                    --output_dir <output_dir> 
+                                    --msa_rand_fraction <Random masking>   # default=0.1
+                                    --flagfile <flag_file>                 # default = AFmultitemplate/monomer_full_dbs.flag
 
 ```
 

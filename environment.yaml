@@ -1,0 +1,16 @@
+name: AFsample2_env
+channels:
+  - conda-forge
+  - bioconda
+  - nvidia
+dependencies:
+  - aria2
+  - openmm=7.5.1
+  - pdbfixer=1.7
+  - cudnn=8.2.1.32
+  - tmalign
+  - kalign3=3.2.2
+  - hhsuite=3.3.0
+  - hmmer=3.3.2
+  - cuda-nvcc
+  - mmseqs2
