@@ -48,25 +48,39 @@ Step-by-step instructions to (1) generate model ensembles (2) Analyze diversity 
 ### Ensemble generation
 Follow the steps to generate a diverse conformational ensemble for a given ```<fasta_path>```. 
 ```bash
-pip install af_sample2
+# Inputs: 
+# <models_to_use>: Path to generated models
+# <pdb_state1>: Reference PDB of state1
+# <msa_rand_fraction>: Reference PDB of state1
+# <output_dir>: Path to output directory
+
+# Outputs:
+# <models_to_use>: Path to generated models
+
 python AF_multitemplate/run_alphafold.py --models_to_use <models_to_use>        # default=model_1 
-                                 --fasta_paths <fasta_path>         
-                                 --output_dir <output_dir> 
-                                 --msa_rand_fraction <Random masking>   # default=0.1
-                                 --flagfile <flag_file>                 # default = AFmultitemplate/monomer_full_dbs.flag
+                                         --fasta_paths <models_to_use>         
+                                         --output_dir <output_dir> 
+                                         --msa_rand_fraction <Random masking>   # default=0.1
+                                         --flagfile <flag_file>                 # default = AFmultitemplate/monomer_full_dbs.flag
 
 ```
-Explain how to use AFsample2. Provide examples or code snippets to demonstrate its usage. Include any configuration options or parameters that can be customized by the user.
 
 ### Diversity analysis
-```bash
-$ pip install af_sample2
-$ python AF_multitemplate/abl_msa.sh --models_to_use <models_to_use>        # default=model_1 
-                                 --fasta_paths <fasta_path>         
-                                 --output_dir <output_dir> 
-                                 --msa_rand_fraction <Random masking>   # default=0.1
-                                 --flagfile <flag_file>                 # default = AFmultitemplate/monomer_full_dbs.flag
 
+Analyse generated models to quantify diversity. The following 
+
+```bash
+# Inputs: 
+# <afout_path>: Path to generated models
+# <pdb_state1>: Reference PDB of state1
+# <pdb_state1>: Reference PDB of state1
+
+# Outputs:
+# 
+
+python src/analyse_models.py --afout_path <afout_path>      # Path to generated models
+                             --pdb_state1 <pdb_state1>      # Reference PDB of state1
+                             --pdb_state2 <pdb_state2>      # Reference PDB of state1
 ```
 
 ### Clustering and reference-free state determiantion
