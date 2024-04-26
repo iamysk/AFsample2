@@ -10,7 +10,9 @@ Briefly introduce what AFsample2 is and what problem it aims to solve or what pu
 Provide instructions on how to install AFsample2, including any dependencies that need to be installed beforehand. You may include code snippets or commands for package managers like pip or npm.
 
 ## Usage
-
+```bash
+$ pip install af_sample2
+```
 Explain how to use AFsample2. Provide examples or code snippets to demonstrate its usage. Include any configuration options or parameters that can be customized by the user.
 
 ## How to Cite
@@ -36,6 +38,11 @@ Provide contact information for the maintainers of AFsample2 in case users have 
 ## Additional Resources
 
 Include links to any additional resources related to AFsample2, such as documentation, tutorials, or demo videos.
+| Column 1 | Column 2 | Column 3 |
+|----------|----------|----------|
+| Data 1   | Data 2   | Data 3   |
+| Data 4   | Data 5   | Data 6   |
+
 
 ## Project Status
 
