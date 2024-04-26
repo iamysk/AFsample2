@@ -48,6 +48,7 @@ Step-by-step instructions to (1) generate model ensembles (2) Analyze diversity 
 ### Ensemble generation
 Follow the steps to generate a diverse conformational ensemble for a given ```<fasta_path>```. 
 ```bash
+'''
 # Inputs: 
 # <models_to_use>: Path to generated models
 # <pdb_state1>: Reference PDB of state1
@@ -56,6 +57,7 @@ Follow the steps to generate a diverse conformational ensemble for a given ```<f
 
 # Outputs:
 # <models_to_use>: Path to generated models
+'''
 
 python AF_multitemplate/run_alphafold.py --models_to_use <models_to_use>        # default=model_1 
                                          --fasta_paths <models_to_use>         
