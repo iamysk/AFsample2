@@ -3,13 +3,27 @@
 
 ## Introduction
 
-AFsample2 
+AFsample2 is a generative protein strutcre prediction system based on AF2 that is able to induce significant conformational diversity for a given protein.
 
 ## Installation
 
-Provide instructions on how to install AFsample2, including any dependencies that need to be installed beforehand. You may include code snippets or commands for package managers like pip or npm.
+1. Clone this repository
+2. Make a new python/conda environment and install dependencies
+
+```
+# Clone this repository
+git clone https://github.com/iamysk/AFsample2.git
+cd AFunmasked/
+
+# install dependencies
+conda env create -n <env_name> --file=environment.yaml
+conda activate <env_name>
+python -m pip install -r requirements.txt
+```
 
 ## Usage
+
+Step-by-step instructions to (1) generate model ensembles (2) Analyze diversity and (3) Clustering and downstream analysis
 
 ### Ensemble generation
 ```bash
