@@ -59,11 +59,11 @@ Follow the steps to generate a diverse conformational ensemble for a given ```<f
 # <models_to_use>: Path to generated models
 '''
 
-python AF_multitemplate/run_alphafold.py --models_to_use <models_to_use>        # default=model_1 
-                                         --fasta_paths <models_to_use>         
-                                         --output_dir <output_dir> 
-                                         --msa_rand_fraction <Random masking>   # default=0.1
-                                         --flagfile <flag_file>                 # default = AFmultitemplate/monomer_full_dbs.flag
+python AF_multitemplate/run_alphafold.py --models_to_use model_1
+                                         --fasta_paths example/8E6Y/8E6Y.fasta      
+                                         --output_dir example/8E6Y
+                                         --msa_rand_fraction 0.1
+                                         --flagfile AFmultitemplate/monomer_full_dbs.flag
 
 ```
 
