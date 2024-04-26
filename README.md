@@ -7,8 +7,8 @@ AFsample2 is a generative protein strutcre prediction system based on AF2 that i
 
 ## Installation
 
-1. Clone this repository
-2. Make a new python/conda environment and install dependencies
+1. [Install Miniconda](https://docs.anaconda.com/free/miniconda/miniconda-install/)
+2. Setup environment
 
 ```
 # Clone this repository
@@ -20,12 +20,32 @@ conda env create -n <env_name> --file=environment.yaml
 conda activate <env_name>
 python -m pip install -r requirements.txt
 ```
+3. Make sure that all sequence databases are available. Follow the official AlphaFold guide [here](https://docs.anaconda.com/free/miniconda/miniconda-install/).
+```bash
+$ cd scripts
+$ chmod +x download_all_data.sh
+$ ./download_all_data.sh <data_path> reduced_dbs
+```
+4. Install Rosetta suite for clustering tasks ([Download link](https://en.wikipedia.org/wiki/Tar_(computing))). Make sure that a C++ compiler is installed. 
+
+```bash
+## Optional. Ignore if compielrs already installed
+$ sudo apt-get install build-essential      # To install C++ compilers
+
+## Unzip tarball and compile
+$ tar -xvzf rosetta[releasenumber].tar.gz
+$ cd rosetta*/main/source
+$ ./scons.py -j <num_cores> mode=release bin/rosetta_scripts.mpi.linuxgccrelease       # Significiantly fast with multithreading
+
+Refer to this [guide](https://new.rosettacommons.org/demos/latest/tutorials/install_build/install_build#installing-rosetta) for further details.
+```
 
 ## Usage
 
 Step-by-step instructions to (1) generate model ensembles (2) Analyze diversity and (3) Clustering and downstream analysis
 
 ### Ensemble generation
+Follow the steps to generate a diverse conformational ensemble for a given ```<fasta_path>```. 
 ```bash
 $ pip install af_sample2
 $ sh AF_multitemplate/abl_msa.sh --models_to_use <models_to_use>        # default=model_1 
