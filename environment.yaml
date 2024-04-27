@@ -14,3 +14,4 @@ dependencies:
   - hmmer=3.3.2
   - cuda-nvcc
   - mmseqs2
+  - tqdm

@@ -47,11 +47,11 @@ if [[ "${DOWNLOAD_MODE}" = reduced_dbs ]] ; then
   #bash "${SCRIPT_DIR}/download_small_bfd.sh" "${DOWNLOAD_DIR}"
 else
   echo "Downloading BFD..."
-  bash "${SCRIPT_DIR}/download_bfd.sh" "${DOWNLOAD_DIR}"
+  #bash "${SCRIPT_DIR}/download_bfd.sh" "${DOWNLOAD_DIR}"
 fi
 
 echo "Downloading MGnify..."
-bash "${SCRIPT_DIR}/download_mgnify.sh" "${DOWNLOAD_DIR}"
+#bash "${SCRIPT_DIR}/download_mgnify.sh" "${DOWNLOAD_DIR}"
 
 echo "Downloading PDB70..."
 bash "${SCRIPT_DIR}/download_pdb70.sh" "${DOWNLOAD_DIR}"

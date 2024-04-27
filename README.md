@@ -30,8 +30,8 @@ chmod +x download_all_data.sh
 4. Install Rosetta suite for clustering tasks ([Download link](https://en.wikipedia.org/wiki/Tar_(computing))). Make sure that a C++ compiler is installed. 
 
 ```bash
-## Optional. Ignore if compielrs already installed
-$ sudo apt-get install build-essential      # To install C++ compilers
+## Optional. Ignore if compilers already installed
+$ sudo apt-get install build-essential      # install C++ compilers
 
 ## Unzip tarball and compile
 tar -xvzf rosetta[releasenumber].tar.gz
@@ -51,14 +51,14 @@ Follow the steps to generate a diverse conformational ensemble for a given ```<f
 '''
 # Inputs: 
 # <models_to_use>: Path to generated models
-# <pdb_state1>: Reference PDB of state1
+# <fasta_paths>: Reference PDB of state1
 # <msa_rand_fraction>: Reference PDB of state1
-# <output_dir>: Path to output directory
 
 # Outputs:
-# <models_to_use>: Path to generated models
+# <output_dir>: Path to output directory
 '''
 
+# Example usage
 python AF_multitemplate/run_alphafold.py --models_to_use model_1
                                          --fasta_paths example/8E6Y/8E6Y.fasta      
                                          --output_dir example/8E6Y
@@ -72,27 +72,26 @@ python AF_multitemplate/run_alphafold.py --models_to_use model_1
 Analyse generated models to quantify diversity. The following 
 
 ```bash
+'''
 # Inputs: 
 # <afout_path>: Path to generated models
 # <pdb_state1>: Reference PDB of state1
 # <pdb_state1>: Reference PDB of state1
 
 # Outputs:
-# 
+# final_df_ref1-ref2.csv file saved at results/
+'''
 
-python src/analyse_models.py --afout_path <afout_path>      # Path to generated models
-                             --pdb_state1 <pdb_state1>      # Reference PDB of state1
-                             --pdb_state2 <pdb_state2>      # Reference PDB of state1
+# Example usage
+python src/analyse_models.py --afout_path examples/8E6Y/ 
+                             --pdb_state1 examples/8E6Y/referencea/2fs1_A.pdb 
+                             --pdb_state2 examples/8E6Y/referencea/8e6y_A.pdb
+
 ```
 
 ### Clustering and reference-free state determiantion
 ```bash
 $ pip install af_sample2
-$ sh AF_multitemplate/run_alphafold.py --models_to_use <models_to_use>        # default=model_1 
-                                    --fasta_paths <fasta_path>         
-                                    --output_dir <output_dir> 
-                                    --msa_rand_fraction <Random masking>   # default=0.1
-                                    --flagfile <flag_file>                 # default = AFmultitemplate/monomer_full_dbs.flag
 
 ```
 
@@ -123,9 +122,3 @@ Include links to any additional resources related to AFsample2, such as document
 |----------|----------|----------|
 | Data 1   | Data 2   | Data 3   |
 | Data 4   | Data 5   | Data 6   |
-
-
-## Project Status
-
-Optional: Provide information about the current status of AFsample2, such as whether it's actively maintained, in development, or no longer maintained.
-
