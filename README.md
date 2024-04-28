@@ -97,28 +97,11 @@ $ pip install af_sample2
 
 ## How to Cite
 
-If AFsample2 is research-related or if you'd like users to cite it in their work, provide a citation format here. Include the title, authors, publication year (if applicable), and any relevant details such as conference or journal name.
+Bibtex citation
 
 ## Contributing
 
-Provide guidelines for contributing to AFsample2. This may include instructions for reporting bugs, suggesting new features, or submitting pull requests. Be sure to mention any coding standards or conventions to follow.
 
 ## License
 
-Specify the license under which AFsample2 is distributed. Include any terms and conditions associated with the license.
-
-## Acknowledgements
-
-Acknowledge any individuals, organizations, or projects that have contributed to AFsample2 or inspired its development.
-
-## Contact
-
-Provide contact information for the maintainers of AFsample2 in case users have questions, feedback, or need support.
-
-## Additional Resources
-
-Include links to any additional resources related to AFsample2, such as documentation, tutorials, or demo videos.
-| Column 1 | Column 2 | Column 3 |
-|----------|----------|----------|
-| Data 1   | Data 2   | Data 3   |
-| Data 4   | Data 5   | Data 6   |
+APACHE
