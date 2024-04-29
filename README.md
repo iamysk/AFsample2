@@ -13,7 +13,7 @@ AFsample2 is a generative protein strutcre prediction system based on AF2 that i
 ```
 # Clone this repository
 git clone https://github.com/iamysk/AFsample2.git
-cd AFunmasked/
+cd AFsample2/
 
 # install dependencies
 conda env create -n <env_name> --file=environment.yaml
