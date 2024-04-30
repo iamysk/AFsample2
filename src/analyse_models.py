@@ -19,6 +19,7 @@ import os
 import re
 import collections, operator
 import glob
+import numpy as np
 import pandas as pd
 from Bio.PDB import PDBParser
 from tqdm import tqdm
@@ -30,8 +31,6 @@ class EnsembleAnalyzer:
         self.pdb_state1 = pdb_state1
         self.pdb_state2 = pdb_state2
         self.outpath = outpath
-        self.pdb_state1 = pdb_state1
-        self.pdb_state2 = pdb_state2
         self.get_state = GetState(jobid, radius=1)     # Initialize GetState class instance
 
     def read_tmout(self, f):
@@ -46,24 +45,19 @@ class EnsembleAnalyzer:
                         rmsd = float(line.split(' ')[8][:-1])
         return tm_score, rmsd
 
-    def calculate_mean_bfactor(self, pdb_file):
+    def calculate_bfactors(self, pdb_file):
         parser = PDBParser()
         structure = parser.get_structure('pdb_structure', pdb_file)
 
-        total_bfactor = 0.0
+        per_res_bfactors = []
         num_atoms = 0
+
         for model in structure:
             for chain in model:
                 for residue in chain:
-                    for atom in residue:
-                        total_bfactor += atom.bfactor
-                        num_atoms += 1
+                    per_res_bfactors.append(np.sum([atom.bfactor for atom in residue])/len(residue))
 
-        if num_atoms == 0:
-            return None
-
-        mean_bfactor = total_bfactor / num_atoms
-        return mean_bfactor
+        return per_res_bfactors
 
     def align_models(self, reference_pdb, reference=False):
         print(f"Aligning models with {reference_pdb}")
@@ -72,11 +66,6 @@ class EnsembleAnalyzer:
         cmd = f"for pdb in {self.afout_path}/*.pdb;do echo TMalign $pdb {reference_pdb} -d 3.5'>'$pdb.{state_id}.TM; done | parallel --eta -j 64"
         os.system(cmd)
         return state_id
-        # else:
-        #     cmd = f"for pdb in {self.afout_path}/*.pdb;do echo TMalign $pdb {reference_pdb} -d 3.5'>'$pdb.bestmodel.TM; done | parallel --eta -j 64"
-        #     print(cmd)
-        #     os.system(cmd)
-        #     return reference_pdb
     
     def make_tm_df(self, df, mode):
         tms = []
@@ -89,13 +78,17 @@ class EnsembleAnalyzer:
 
     def analyze_models(self):
         print("Analyzing models...")
-        print(self.pdb_state1, self.pdb_state2)
+        print('Reference state1:', self.pdb_state1)
+        print('Reference state2:', self.pdb_state2)
 
-        confidences = []
+        overall_confidences, per_residue_confidences = [], []
         for protein in tqdm(glob.glob(f"{self.afout_path}/*.pdb")):
-            mean_bfactor = self.calculate_mean_bfactor(protein)
-            confidences.append([protein, mean_bfactor])
-        confidence_df = pd.DataFrame(confidences, columns=['model_path', 'confidence'])
+            bfactors = self.calculate_bfactors(protein)
+            per_residue_confidences.append(bfactors)
+            overall_confidences.append([protein, np.mean(bfactors)])
+        confidence_df = pd.DataFrame(overall_confidences, columns=['model_path', 'confidence'])
+        lowconf_indices = np.where(np.mean(per_residue_confidences, axis=0)<50)[0]+1  # Get indices of low-confidence residues. Rosetta is 1-indexed
+        print('Low confidence indices:', lowconf_indices)
         
         # Get top confident model
         top_confident = confidence_df.sort_values(by='confidence', ascending=False).iloc[0]
@@ -108,9 +101,9 @@ class EnsembleAnalyzer:
             reference=False
             print('\n========== Running TM-align ==========')
             bestmodel = self.align_models(top_confident_model, reference=reference)
-            confidence_df = self.make_tm_df(confidence_df, 'bestmodel')
+            confidence_df = self.make_tm_df(confidence_df, bestmodel)
             print(confidence_df.head())
-            self.pdb_state1, self.pdb_state2 = self.get_state.calculate_states(confidence_df)
+            self.pdb_state1, self.pdb_state2 = self.get_state.calculate_states(confidence_df, lowconf_indices)
         else:
             reference=True
             print('>> Received reference pdbs...', self.pdb_state1, self.pdb_state2)
@@ -119,7 +112,7 @@ class EnsembleAnalyzer:
 
         if reference:
             bestmodel = self.align_models(top_confident_model)
-            confidence_df = self.make_tm_df(confidence_df, 'bestmodel')
+            confidence_df = self.make_tm_df(confidence_df, top_confident_model)
 
         state1_id = self.align_models(self.pdb_state1, reference=reference)
         state2_id = self.align_models(self.pdb_state2, reference=reference)
@@ -138,7 +131,6 @@ class GetState():
     def __init__(self, jobid, radius):
         self.jobid = jobid
         self.radius = radius
-        print('Initialized params!')
 
     def read_clusterfile(self, clusterfile):
         data=[]
@@ -152,26 +144,33 @@ class GetState():
                     data.append(row)
         return(pd.DataFrame(data))
     
-    def calculate_states(self, confidence_df):
-        tempdir = 'temp/'
+    def calculate_states(self, confidence_df, lowconf_indices):
+        tempdir = f'temp/{self.jobid}'
         if not os.path.exists(tempdir):
             os.makedirs(tempdir)
-            os.makedirs(f"{tempdir}/rosetta_out/")
 
         # Make input file for rosetta
-        with open(f'{tempdir}{self.jobid}.txt', 'w') as fp:
+        with open(f'{tempdir}/{self.jobid}.txt', 'w') as fp:
             for pdb in confidence_df['model_path']:
                 fp.write(f"{pdb}\n")
         fp.close()
         
         rosetta_path = '/software/presto/software/Rosetta/3.13-foss-2019b-2/bin/cluster.mpi.linuxgccrelease'
-        cmd = f'{rosetta_path} -in:file:l {tempdir}{self.jobid}.txt -in:file:fullatom -score:empty -out:prefix {tempdir}/rosetta_out/model_all_{self.radius}_ -cluster:radius {self.radius} >{tempdir}/rosetta_out/model_all_{self.radius}_cluster.out'
-        print(cmd)
-        os.system(cmd)
+        outfile = f'{tempdir}/model_all_{self.radius}_cluster.out'
+        if os.path.isfile(outfile):
+            pass
+        else:
+            if len(lowconf_indices)>0:
+                cmd = f'{rosetta_path} -in:file:l {tempdir}/{self.jobid}.txt -in:file:fullatom -score:empty -out:prefix {tempdir}/model_all_{self.radius}_ -cluster:radius {self.radius} -cluster:exclude_res {" ".join(map(str, lowconf_indices))} >{outfile}'
+            else:
+                cmd = f'{rosetta_path} -in:file:l {tempdir}/{self.jobid}.txt -in:file:fullatom -score:empty -out:prefix {tempdir}/model_all_{self.radius}_ -cluster:radius {self.radius} >{outfile}'
+            print(cmd)
+            os.system(cmd)
 
-        df_cluster = self.read_clusterfile(f"{tempdir}/rosetta_out/model_all_{self.radius}_cluster.out")
+        df_cluster = self.read_clusterfile(outfile)
         counter_dict = collections.Counter(df_cluster['cluster'].values)
 
+        tm_w_best_col = confidence_df.columns[-1]
         confidence_df['cluster_ids']=df_cluster['cluster']
         
         # Sorting by values
@@ -180,23 +179,25 @@ class GetState():
 
         # Filter by confidence
         subset_filtered1 = rand_df_clusters[rand_df_clusters['confidence']>=0.60].reset_index()
-        xmax, xmin = subset_filtered1['tm_bestmodel'].min(), subset_filtered1['tm_bestmodel'].max()
+        print(subset_filtered1.shape)
+        
+        xmax, xmin = subset_filtered1[tm_w_best_col].min(), subset_filtered1[tm_w_best_col].max()
+        print(xmax, xmin)
 
         max_indices = subset_filtered1.groupby('cluster_ids')['confidence'].idxmax()    # best model from each cluster by confidence
-        best_models_for_each_cluster = subset_filtered1.loc[max_indices].sort_values(by='tm_bestmodel', ascending=False).reset_index(drop=True)     # best model from each cluster by confidence
+        best_models_for_each_cluster = subset_filtered1.loc[max_indices].sort_values(by=tm_w_best_col, ascending=False).reset_index(drop=True)     # best model from each cluster by confidence
         
-        print(list(best_models_for_each_cluster.values[0]))
+        print(best_models_for_each_cluster)
         _, pdb_state1, tm_w_best1, confidence1, clusterid1 = list(best_models_for_each_cluster.values[0])
-        _, pdb_state2, tm_w_best2, confidence1, clusterid2 =list(best_models_for_each_cluster.values[-1])
+        _, pdb_state2, tm_w_best2, confidence2, clusterid2 =list(best_models_for_each_cluster.values[-1])
 
         print('\n=========== Summary of state identification ===========')
         print('Total models analysed:', len(confidence_df))
         print('Number of clusters:', len(counter_dict))
         print('State, model_pdb, tm_w_best, confidence, clusterid')
         print(f"1, {pdb_state1}, {tm_w_best1}, {confidence1}, {clusterid1}")
-        print(f"2, {pdb_state2}, {tm_w_best2}, {confidence1}, {clusterid2}")
+        print(f"2, {pdb_state2}, {tm_w_best2}, {confidence2}, {clusterid2}")
         return pdb_state1, pdb_state2
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Analyse generated model ensemble')
