@@ -87,10 +87,9 @@ python src/analyse_models.py --afout_path examples/8E6Y/
                              --pdb_state1 examples/8E6Y/referencea/2fs1_A.pdb 
                              --pdb_state2 examples/8E6Y/referencea/8e6y_A.pdb
 
-# Example usage (If refernces available)
+# Example usage (If references not available)
 python src/analyse_models.py --afout_path examples/8E6Y/ 
-                             --pdb_state1 examples/8E6Y/referencea/2fs1_A.pdb 
-                             --pdb_state2 examples/8E6Y/referencea/8e6y_A.pdb
+                             
 
 ```
 
