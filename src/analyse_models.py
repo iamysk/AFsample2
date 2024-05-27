@@ -25,12 +25,13 @@ from Bio.PDB import PDBParser
 from tqdm import tqdm
 
 class EnsembleAnalyzer:
-    def __init__(self, jobid, afout_path, outpath='results/', pdb_state1=None, pdb_state2=None):
+    def __init__(self, jobid, afout_path, clustering,  outpath='results/', pdb_state1=None, pdb_state2=None):
         self.jobid = jobid
         self.afout_path = afout_path
         self.pdb_state1 = pdb_state1
         self.pdb_state2 = pdb_state2
         self.outpath = outpath
+        self.clustering = True
         self.get_state = GetState(jobid, radius=1)     # Initialize GetState class instance
 
     def read_tmout(self, f):
@@ -59,22 +60,33 @@ class EnsembleAnalyzer:
 
         return per_res_bfactors
 
-    def align_models(self, reference_pdb, reference=False):
+    def align_models(self, reference_pdb, output_dir, reference=False):
         print(f"Aligning models with {reference_pdb}")
         #if reference:
         state_id = reference_pdb.split('/')[-1].split('.')[0]
-        cmd = f"for pdb in {self.afout_path}/*.pdb;do echo TMalign $pdb {reference_pdb} -d 3.5'>'$pdb.{state_id}.TM; done | parallel --eta -j 64"
+        cmd = f"for pdb in {self.afout_path}/*.pdb;do pdb_filename=$(basename $pdb); echo TMalign $pdb {reference_pdb} -d 3.5'>'{output_dir}/$pdb_filename.{state_id}.TM; done | parallel --eta -j 64"
         os.system(cmd)
         return state_id
     
-    def make_tm_df(self, df, mode):
+    def make_tm_df(self, df, mode, tmoutdir):
         tms = []
         for model in df['model_path']:
-            tmout_file = f"{model}.{mode}.TM"
+            tmout_file = f"{tmoutdir}/{model.split('/')[-1]}.{mode}.TM"
+            # tmout_file = f"{model}.{mode}.TM"
             tm, _ = self.read_tmout(tmout_file)
             tms.append(tm)
         df['tm_'+mode] = tms
         return df
+        
+    def classify_samples(self, state1, state2):
+        tm_s1_o, tm_s1_c, _ = state1
+        tm_s2_o, tm_s2_c, _ = state2
+        if tm_s1_o + tm_s2_c < tm_s1_c + tm_s2_o:
+            # Sample1 -> state1, Sample2 -> state2
+            return 1, 2
+        else:
+            # Sample1 -> state2, Sample2 -> state1
+            return 2, 1
 
     def analyze_models(self):
         print("Analyzing models...")
@@ -96,14 +108,36 @@ class EnsembleAnalyzer:
         confidence = top_confident['confidence']
         print(f"Most confident model: {top_confident_model}, Confidence: {confidence}")
 
+        # Make tmout dir if not
+        tmoutdir = self.outpath+'/'+self.jobid+'/tmout'
+        if not os.path.exists(tmoutdir):
+            os.makedirs(tmoutdir)
+
         # Get states from geenrated models if not provided
         if self.pdb_state1 is None or self.pdb_state2 is None:
             reference=False
             print('\n========== Running TM-align ==========')
-            bestmodel = self.align_models(top_confident_model, reference=reference)
-            confidence_df = self.make_tm_df(confidence_df, bestmodel)
+            bestmodel = self.align_models(top_confident_model, tmoutdir, reference=reference)
+            confidence_df = self.make_tm_df(confidence_df, bestmodel, tmoutdir)
             print(confidence_df.head())
-            self.pdb_state1, self.pdb_state2 = self.get_state.calculate_states(confidence_df, lowconf_indices)
+            if self.clustering==True:
+                print('intitalizing rosetta clustering since clustering==True')
+                self.pdb_state1, self.pdb_state2, filtered_df = self.get_state.calculate_states(confidence_df, lowconf_indices)
+            else:
+                print('intitalizing simple selection since clustering==False')
+                # Filter 1
+                max_confidence = confidence_df['confidence'].max()
+                conf_filtered = confidence_df[confidence_df['confidence']>=max_confidence*(60*0.01)]   # Filter by threshold
+
+                idx1 = conf_filtered[f'tm_{bestmodel}'].idxmax()
+                state1 = conf_filtered.loc[idx1].values.flatten()[0]
+
+                idx2 = conf_filtered[f'tm_{bestmodel}'].idxmin()
+                state2 = conf_filtered.loc[idx2].values.flatten()[0]
+
+                self.pdb_state1, self.pdb_state2 = state1, state2
+                print('Identified states', self.pdb_state1, self.pdb_state2)
+                filtered_df = confidence_df
         else:
             reference=True
             print('>> Received reference pdbs...', self.pdb_state1, self.pdb_state2)
@@ -111,20 +145,19 @@ class EnsembleAnalyzer:
         print('\n========== Running TM-align ==========')
 
         if reference:
-            bestmodel = self.align_models(top_confident_model)
-            confidence_df = self.make_tm_df(confidence_df, top_confident_model)
+            bestmodel = self.align_models(top_confident_model, tmoutdir)
+            confidence_df = self.make_tm_df(confidence_df, top_confident_model, tmoutdir)
 
-        state1_id = self.align_models(self.pdb_state1, reference=reference)
-        state2_id = self.align_models(self.pdb_state2, reference=reference)
+        state1_id = self.align_models(self.pdb_state1, tmoutdir, reference=reference)
+        state2_id = self.align_models(self.pdb_state2, tmoutdir, reference=reference)
         print('>> Alignents done. TM-align outputs saved at', self.afout_path)
 
         print(">> Processing alignment results...")
-        print(state1_id)
-        confidence_df = self.make_tm_df(confidence_df, state1_id)
-        confidence_df = self.make_tm_df(confidence_df, state2_id)
+        filtered_df = self.make_tm_df(filtered_df, state1_id, tmoutdir)
+        filtered_df = self.make_tm_df(filtered_df, state2_id, tmoutdir)
         
-        outfile = f'{self.outpath}/final_df_{self.jobid}_{state1_id}-{state2_id}.csv'
-        confidence_df.to_csv(outfile)
+        outfile = f'{self.outpath}/{self.jobid}/final_df_{self.jobid}_{state1_id}-{state2_id}.csv'
+        filtered_df.to_csv(outfile)
         print('\n>> Results csv saved at', outfile)
 
 class GetState():
@@ -176,6 +209,7 @@ class GetState():
         # Sorting by values
         sorted_by_values = {key: value for key, value in sorted(counter_dict.items(), key=lambda item: item[1], reverse=True)}
         rand_df_clusters = confidence_df[confidence_df['cluster_ids'].isin(list(sorted_by_values.keys())[:5])]
+        print('RAND DF SHAPE (TOP 5 CLUSTERS):', rand_df_clusters['cluster_ids'].unique())
 
         # Filter by confidence
         subset_filtered1 = rand_df_clusters[rand_df_clusters['confidence']>=0.60].reset_index()
@@ -189,7 +223,7 @@ class GetState():
         
         print(best_models_for_each_cluster)
         _, pdb_state1, tm_w_best1, confidence1, clusterid1 = list(best_models_for_each_cluster.values[0])
-        _, pdb_state2, tm_w_best2, confidence2, clusterid2 =list(best_models_for_each_cluster.values[-1])
+        _, pdb_state2, tm_w_best2, confidence2, clusterid2 = list(best_models_for_each_cluster.values[-1])
 
         print('\n=========== Summary of state identification ===========')
         print('Total models analysed:', len(confidence_df))
@@ -197,7 +231,7 @@ class GetState():
         print('State, model_pdb, tm_w_best, confidence, clusterid')
         print(f"1, {pdb_state1}, {tm_w_best1}, {confidence1}, {clusterid1}")
         print(f"2, {pdb_state2}, {tm_w_best2}, {confidence2}, {clusterid2}")
-        return pdb_state1, pdb_state2
+        return pdb_state1, pdb_state2, rand_df_clusters
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Analyse generated model ensemble')
@@ -205,9 +239,10 @@ if __name__ == "__main__":
     parser.add_argument('--afout_path', required=True, help='Path to generated models')
     parser.add_argument('--pdb_state1', required=False, help='Reference PDB of state1')
     parser.add_argument('--pdb_state2', required=False, help='Reference PDB of state2')
+    parser.add_argument('--clustering', required=True, help='Clustering models')
     parser.add_argument('--outpath', default='results/', help='Output path')
 
     args = parser.parse_args()
 
-    model_analyzer = EnsembleAnalyzer(args.jobid, args.afout_path, args.outpath, args.pdb_state1, args.pdb_state2)
+    model_analyzer = EnsembleAnalyzer(args.jobid, args.afout_path, args.clustering, args.outpath, args.pdb_state1, args.pdb_state2)
     model_analyzer.analyze_models()
