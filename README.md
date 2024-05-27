@@ -27,7 +27,7 @@ chmod +x download_all_data.sh
 ./download_all_data.sh <data_path> reduced_dbs
 ```
 
-4. Install Rosetta suite for clustering tasks ([Download link](https://en.wikipedia.org/wiki/Tar_(computing))). Make sure that a C++ compiler is installed. 
+4. [OPTIONAL] Install Rosetta suite for clustering tasks ([Download link](https://en.wikipedia.org/wiki/Tar_(computing))). Make sure that a C++ compiler is installed. 
 
 ```bash
 ## Optional. Ignore if compilers already installed
@@ -82,7 +82,12 @@ Analyse generated models to quantify diversity. The following
 # final_df_ref1-ref2.csv file saved at results/
 '''
 
-# Example usage
+# Example usage (If references available)
+python src/analyse_models.py --afout_path examples/8E6Y/ 
+                             --pdb_state1 examples/8E6Y/referencea/2fs1_A.pdb 
+                             --pdb_state2 examples/8E6Y/referencea/8e6y_A.pdb
+
+# Example usage (If refernces available)
 python src/analyse_models.py --afout_path examples/8E6Y/ 
                              --pdb_state1 examples/8E6Y/referencea/2fs1_A.pdb 
                              --pdb_state2 examples/8E6Y/referencea/8e6y_A.pdb
