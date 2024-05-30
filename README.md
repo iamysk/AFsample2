@@ -1,6 +1,8 @@
 # AFsample2
 ![20240226_mov.gif](20240226_mov.gif)
 
+Introdicing a way to induce diversity in the AF2 ensemble spanning multiplle conformational states.
+
 ## Introduction
 
 AFsample2 is a generative protein strutcre prediction system based on AF2 that is able to induce significant conformational diversity for a given protein.
