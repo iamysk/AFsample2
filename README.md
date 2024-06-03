@@ -62,10 +62,10 @@ Follow the steps to generate a diverse conformational ensemble for a given ```<f
 
 # Example usage
 python AF_multitemplate/run_alphafold.py --models_to_use model_1
-                                         --fasta_paths example/8E6Y/8E6Y.fasta      
-                                         --output_dir example/8E6Y
-                                         --msa_rand_fraction 0.1
-                                         --flagfile AFmultitemplate/monomer_full_dbs.flag
+	--fasta_paths example/8E6Y/8E6Y.fasta      
+	--output_dir example/8E6Y
+	--msa_rand_fraction 0.1
+	--flagfile AFmultitemplate/monomer_full_dbs.flag
 
 ```
 
@@ -86,10 +86,10 @@ Analyse model ensemble to generate diversity plot if refernce available. In case
 
 # Example usage (If references available)
 python src/analyse_models.py --afout_path examples/8E6Y/ \
-                             --pdb_state1 examples/8E6Y/referencea/2fs1_A.pdb \ 
-                             --pdb_state2 examples/8E6Y/referencea/8e6y_A.pdb \
-							 --jobid 8E6Y \
-							 --clustering=False
+	--pdb_state1 examples/8E6Y/referencea/2fs1_A.pdb \
+	--pdb_state2 examples/8E6Y/referencea/8e6y_A.pdb \
+	--jobid 8E6Y \
+	--clustering=False
 
 # Example usage (If references not available)
 python src/analyse_models.py --jobid 8E6Y --afout_path examples/8E6Y/ --clustering=False
