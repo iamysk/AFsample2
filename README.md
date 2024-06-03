@@ -102,8 +102,19 @@ $ pip install af_sample2
 ```
 
 ## How to Cite
-
-Bibtex citation
+```
+@article {Kalakoti2024.05.28.596195,
+	author = {Kalakoti, Yogesh and Wallner, Bj{\"o}rn},
+	title = {AFsample2: Predicting multiple conformations and ensembles with AlphaFold2},
+	elocation-id = {2024.05.28.596195},
+	year = {2024},
+	doi = {10.1101/2024.05.28.596195},
+	publisher = {Cold Spring Harbor Laboratory},
+	URL = {https://www.biorxiv.org/content/early/2024/06/02/2024.05.28.596195},
+	eprint = {https://www.biorxiv.org/content/early/2024/06/02/2024.05.28.596195.full.pdf},
+	journal = {bioRxiv}
+}
+```
 
 ## Contributing
 
