@@ -71,6 +71,7 @@ class EnsembleAnalyzer:
     def make_tm_df(self, df, mode, tmoutdir):
         tms = []
         for model in df['model_path']:
+            print(model, mode)
             tmout_file = f"{tmoutdir}/{model.split('/')[-1]}.{mode}.TM"
             # tmout_file = f"{model}.{mode}.TM"
             tm, _ = self.read_tmout(tmout_file)
@@ -146,7 +147,8 @@ class EnsembleAnalyzer:
 
         if reference:
             bestmodel = self.align_models(top_confident_model, tmoutdir)
-            confidence_df = self.make_tm_df(confidence_df, top_confident_model, tmoutdir)
+            confidence_df = self.make_tm_df(confidence_df, bestmodel, tmoutdir)
+            filtered_df = confidence_df
 
         state1_id = self.align_models(self.pdb_state1, tmoutdir, reference=reference)
         state2_id = self.align_models(self.pdb_state2, tmoutdir, reference=reference)
