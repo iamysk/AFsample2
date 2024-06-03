@@ -31,7 +31,7 @@ class EnsembleAnalyzer:
         self.pdb_state1 = pdb_state1
         self.pdb_state2 = pdb_state2
         self.outpath = outpath
-        self.clustering = True
+        self.clustering = clustering
         self.get_state = GetState(jobid, radius=1)     # Initialize GetState class instance
 
     def read_tmout(self, f):
@@ -239,7 +239,7 @@ if __name__ == "__main__":
     parser.add_argument('--afout_path', required=True, help='Path to generated models')
     parser.add_argument('--pdb_state1', required=False, help='Reference PDB of state1')
     parser.add_argument('--pdb_state2', required=False, help='Reference PDB of state2')
-    parser.add_argument('--clustering', required=True, help='Clustering models')
+    parser.add_argument('--clustering', default=False, help='Clustering models')
     parser.add_argument('--outpath', default='results/', help='Output path')
 
     args = parser.parse_args()
