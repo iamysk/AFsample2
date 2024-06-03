@@ -69,9 +69,9 @@ python AF_multitemplate/run_alphafold.py --models_to_use model_1
 
 ```
 
-### Diversity analysis
+### Diversity analysis and state identification
 
-Analyse generated models to quantify diversity. The following 
+Analyse model ensemble to generate diversity plot if refernce available. In case references are not available, identify possible states.
 
 ```bash
 '''
@@ -85,12 +85,14 @@ Analyse generated models to quantify diversity. The following
 '''
 
 # Example usage (If references available)
-python src/analyse_models.py --afout_path examples/8E6Y/ 
-                             --pdb_state1 examples/8E6Y/referencea/2fs1_A.pdb 
-                             --pdb_state2 examples/8E6Y/referencea/8e6y_A.pdb
+python src/analyse_models.py --afout_path examples/8E6Y/ \
+                             --pdb_state1 examples/8E6Y/referencea/2fs1_A.pdb \ 
+                             --pdb_state2 examples/8E6Y/referencea/8e6y_A.pdb \
+							 --jobid 8E6Y \
+							 --clustering=False
 
 # Example usage (If references not available)
-python src/analyse_models.py --afout_path examples/8E6Y/ 
+python src/analyse_models.py --jobid 8E6Y --afout_path examples/8E6Y/ --clustering=False
                              
 
 ```
