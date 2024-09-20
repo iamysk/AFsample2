@@ -82,6 +82,7 @@ Analyse model ensemble to generate diversity plot if refernce available. In case
 # <afout_path>: Path to generated models
 # <pdb_state1>: Reference PDB of state1
 # <pdb_state1>: Reference PDB of state1
+# <ncpu>: number of cores to use
 
 # Outputs:
 # final_df_ref1-ref2.csv file saved at results/
@@ -93,10 +94,10 @@ python src/analyse_models.py --afout_path examples/8E6Y/ \
 	--pdb_state2 examples/8E6Y/referencea/8e6y_A.pdb \
 	--jobid 8E6Y \
 	--clustering=False
+	--ncpu=16
 
 # Example usage (If references not available)
-python src/analyse_models.py --jobid 8E6Y --afout_path examples/8E6Y/ --clustering=False
-                             
+python src/analyse_models.py --jobid 8E6Y --afout_path examples/8E6Y/ --clustering=False --ncpu=16      
 
 ```
 

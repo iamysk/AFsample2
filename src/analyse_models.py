@@ -362,12 +362,12 @@ class EnsembleAnalyzer:
         logger.info('========== Running TM-align with identified states ==========')
 
         if reference:
-            bestmodel_id = self.align_models(top_confident_model, tmoutdir)
-            confidence_df = self.make_tm_df(confidence_df, bestmodel_id, tmoutdir)
+            #bestmodel_id = self.align_models(top_confident_model, tmoutdir)
+            #confidence_df = self.make_tm_df(confidence_df, bestmodel_id, tmoutdir)
             filtered_df = confidence_df
 
-        tms1_df = tmdf = self.run_tmalign(models, Path(self.pdb_state1), mode='s1')
-        tms2_df = tmdf = self.run_tmalign(models, Path(self.pdb_state2), mode='s2')
+        tms1_df = self.run_tmalign(models, Path(self.pdb_state1), mode='s1')
+        tms2_df = self.run_tmalign(models, Path(self.pdb_state2), mode='s2')
 
         tms1_df['model'] = tms1_df['model'].astype(str).str.strip()
         tms2_df['model'] = tms2_df['model'].astype(str).str.strip()
