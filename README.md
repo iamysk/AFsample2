@@ -120,10 +120,22 @@ $ pip install af_sample2
 	eprint = {https://www.biorxiv.org/content/early/2024/06/02/2024.05.28.596195.full.pdf},
 	journal = {bioRxiv}
 }
+
+@article{Wallner2023,
+  title = {AFsample: improving multimer prediction with AlphaFold using massive sampling},
+  volume = {39},
+  ISSN = {1367-4811},
+  url = {http://dx.doi.org/10.1093/bioinformatics/btad573},
+  DOI = {10.1093/bioinformatics/btad573},
+  number = {9},
+  journal = {Bioinformatics},
+  publisher = {Oxford University Press (OUP)},
+  author = {Wallner,  Bj\"{o}rn},
+  editor = {Kelso,  Janet},
+  year = {2023},
+  month = sep 
+}
 ```
-
-## Contributing
-
 
 ## License
 
