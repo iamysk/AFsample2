@@ -1,5 +1,5 @@
 # AFsample2
-Introducing a way to induce diversity in the AF2 ensemble with  spanning the conformational ensemble and ifentifying possible states.
+Introducing a way to induce diversity in the AF2 ensemble by spanning the conformational ensemble and identifying possible states.
 ![20240226_mov.gif](20240226_mov.gif)
 
 ## Introduction
@@ -32,7 +32,7 @@ chmod +x download_all_data.sh
 ./download_all_data.sh <data_path> reduced_dbs
 ```
 
-4. [OPTIONAL] Install Rosetta suite for clustering tasks ([Download link](https://en.wikipedia.org/wiki/Tar_(computing))). Make sure that a C++ compiler is installed. 
+4. [OPTIONAL] Install Rosetta suite for clustering tasks from here [Download page](https://rosettacommons.org/software/download/). Make sure that a C++ compiler is installed. 
 
 ```bash
 ## Optional. Ignore if compilers already installed
@@ -42,9 +42,8 @@ $ sudo apt-get install build-essential      # install C++ compilers
 tar -xvzf rosetta[releasenumber].tar.gz
 cd rosetta*/main/source
 ./scons.py -j <num_cores> mode=release bin/rosetta_scripts.mpi.linuxgccrelease       # Significiantly fast with multithreading
-
-Refer to this [guide](https://new.rosettacommons.org/demos/latest/tutorials/install_build/install_build#installing-rosetta) for further details.
 ```
+Refer to this [guide](https://new.rosettacommons.org/demos/latest/tutorials/install_build/install_build#installing-rosetta) for further details.
 
 ## Usage
 
@@ -74,7 +73,7 @@ python AF_multitemplate/run_alphafold.py --models_to_use model_1
 
 ### Diversity analysis and state identification
 
-Analyse model ensemble to generate diversity plot if refernce available. In case references are not available, identify possible states.
+Analyse model ensemble to generate diversity plot if reference is available. In case references are not available, identify possible states.
 
 ```bash
 '''
@@ -101,7 +100,7 @@ python src/analyse_models.py --jobid 8E6Y --afout_path examples/8E6Y/ --clusteri
 
 ```
 
-### Clustering and reference-free state determiantion
+### Clustering and reference-free state determination
 ```bash
 $ pip install af_sample2
 
