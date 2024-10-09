@@ -25,7 +25,7 @@ conda env create -n <env_name> --file=environment.yaml
 conda activate <env_name>
 python -m pip install -r requirements.txt
 ```
-3. Make sure that all sequence databases are available at ```<data_path>```. Follow the official AlphaFold guide [here](https://docs.anaconda.com/free/miniconda/miniconda-install/) to set up databases. 
+3. Make sure that all sequence databases are available at ```<data_path>```. Follow the official AlphaFold guide [here](https://github.com/google-deepmind/alphafold) to set up databases. 
 ```bash
 cd scripts
 chmod +x download_all_data.sh
