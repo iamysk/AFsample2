@@ -274,7 +274,7 @@ def predict_structure(
       logging.info('Exiting since --seq_only is True... ')
       sys.exit()
     
-    # Write out features as a pickled dictionary.
+    # Write out features as a pickled dictionary
     features_output_path = os.path.join(output_dir, 'features.pkl')
     with open(features_output_path, 'wb') as f:
       pickle.dump(feature_dict, f, protocol=4)
