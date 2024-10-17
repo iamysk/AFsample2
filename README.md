@@ -52,14 +52,15 @@ Step-by-step instructions to (1) generate model ensembles (2) Analyze diversity 
 ### Ensemble generation
 Follow the steps to generate a diverse conformational ensemble for a given ```<fasta_path>```. 
 ```bash
+
 '''
-# Inputs: 
-# <method>: Method to run among afsample2, afsample, speachaf or vanilla af2
-# <fasta_paths>: path to .fasta file
-# <flagfile> : AF2 specific parameter file
-# <nstruct>: Number of structures to generate
-# <msa_rand_fraction>: % MSA randomization in random msa_perturbation_mode
-# <models_to_use>: (Optional) AF2 model to use (model_1, model_2 ...)
+Inputs: 
+<method>: Method to run among afsample2, afsample, speachaf or vanilla af2
+<fasta_paths>: path to .fasta file
+<flagfile> : AF2 specific parameter file
+<nstruct>: Number of structures to generate
+<msa_rand_fraction>: % MSA randomization in random msa_perturbation_mode
+<models_to_use>: (Optional) AF2 model to use (model_1, model_2 ...)
 
 # Outputs:
 # <output_dir>: Path to output directory
@@ -72,24 +73,22 @@ python AF_multitemplate/run_alphafold.py --method afsample2	\
        --nstruct 1	\
        --msa_rand_fraction 0.20 \
        --models_to_use model_3_ptm \
-	   --output_dir examples/
-
-# Useful flags
-
+       --output_dir examples/								 
+```
+Other useful flags (run ```<AF_multitemplate/run_alphafold.py --help>``` for more details)
 | flag | Options | Usage |
 | --- | --- | --- |
 | --msa_perturbation_mode| random, profile | To choose MSA perturbation mode |
 | --use_precomputed_features| Bool| Whether to use precomputed features.pkl file |
-										 
-### Diversity analysis and state identification,,javailable, identify possible states.
 
+## Diversity analysis and state identification
 ```bash
 '''
-# Inputs: 
-# <afout_path>: Path to generated models
-# <pdb_state1>: Reference PDB of state1
-# <pdb_state1>: Reference PDB of state1
-# <ncpu>: number of cores to use
+Inputs: 
+<afout_path>: Path to generated models
+<pdb_state1>: Reference PDB of state1
+<pdb_state1>: Reference PDB of state1
+<ncpu>: number of cores to use
 
 # Outputs:
 # final_df_ref1-ref2.csv file saved at results/
