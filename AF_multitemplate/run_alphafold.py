@@ -162,8 +162,12 @@ flags.DEFINE_boolean('dropout', False, 'Turn on drop out during inference to get
 flags.DEFINE_boolean('cross_chain_templates', False, 'Whether to include cross-chain distances in multimer templates')
 flags.DEFINE_boolean('cross_chain_templates_only', False, 'Whether to include cross-chain distances in multimer templates')
 flags.DEFINE_boolean('separate_homomer_msas', False, 'Whether to force separate processing of homomer MSAs')
-flags.DEFINE_list('models_to_use',None, 'specify which models in model_preset that should be run')
+flags.DEFINE_list('models_to_use', None, 'specify which models in model_preset that should be run')
 flags.DEFINE_float('msa_rand_fraction', 0, 'Level of MSA randomization (0-1)', lower_bound=0, upper_bound=1)
+flags.DEFINE_enum('method', 'afsample2', ['afsample2', 'speachaf', 'af2'], 'Choose method from <afsample2, speachaf, af2>')
+flags.DEFINE_enum('msa_perturbation_mode', 'random', ['random', 'profile'], 'msa_perturbation_mode')
+flags.DEFINE_string('msa_perturbation_profile', None, 'A file containing the frequency for the residues that could be randomized')
+flags.DEFINE_boolean('use_precomputed_features', False, 'Whether to use precomputed msafeatures')
 
 FLAGS = flags.FLAGS
 
@@ -193,6 +197,52 @@ def _jnp_to_np(output: Dict[str, Any]) -> Dict[str, Any]:
       output[k] = np.array(v)
   return output
 
+def read_rand_profile():
+  msa_frac={}
+  logging.info(f'Reading msa_perturbation_profile from {FLAGS.msa_perturbation_profile}')
+  with open(FLAGS.msa_perturbation_profile,'r') as f:
+    for line in f.readlines():
+      (pos,frac)=line.rstrip().split()
+      msa_frac[int(pos)]=float(frac)
+  return msa_frac
+
+def get_columns_to_randomize(msa, method):
+  nres = msa.shape[1]
+  if method=='afsample2':
+    if FLAGS.msa_perturbation_mode=='random':
+      if FLAGS.msa_rand_fraction:
+        columns_to_randomize = np.random.choice(range(0, nres), size=int(nres*FLAGS.msa_rand_fraction), replace=False) # Without replacement
+      else:
+        logging.info(f'Error! --msa_rand_fraction required for "{FLAGS.msa_perturbation_mode}" mode. Exiting...')
+        sys.exit()
+
+    elif FLAGS.msa_perturbation_mode=='profile':
+      logging.info(f'Perturbing MSA with custom profile')
+      columns_to_randomize=[]
+      if FLAGS.msa_perturbation_profile!=None:
+        msa_frac = read_rand_profile()
+        for pos in msa_frac:
+          r = np.random.random()
+          if msa_frac[pos]>r:
+            columns_to_randomize.append(pos-1)
+      else:
+        logging.info(f'Error! --msa_perturbation_profile required for "profile" mode. Exiting...')
+        sys.exit()
+  
+  if method=='speachaf':
+    logging.info(f'Perturbing MSA with "speachaf profile"')
+    columns_to_randomize=[]
+    if FLAGS.msa_perturbation_profile!=None:
+      msa_frac = read_rand_profile()
+      for pos in msa_frac:
+        r = np.random.random()
+        if msa_frac[pos]>r:
+          columns_to_randomize.append(pos-1)
+    else:
+      logging.info(f'Error! --msa_perturbation_profile required for speachaf. Exiting...')
+      sys.exit()
+  return columns_to_randomize
+
 def predict_structure(
     fasta_path: str,
     fasta_name: str,
@@ -215,68 +265,88 @@ def predict_structure(
 
   # Get features.
   t_0 = time.time()
-  feature_dict = data_pipeline.process(
-      input_fasta_path=fasta_path,
-      msa_output_dir=msa_output_dir)
+  if not FLAGS.use_precomputed_features:
+    feature_dict = data_pipeline.process(input_fasta_path=fasta_path, msa_output_dir=msa_output_dir)
+
+    timings['features'] = time.time() - t_0
+    # Kill if seq_only==True
+    if FLAGS.seq_only:
+      logging.info('Exiting since --seq_only is True... ')
+      sys.exit()
     
-  print('MSA features')
-  for key, value in feature_dict.items():
-    print(key, feature_dict.keys())
+    # Write out features as a pickled dictionary.
+    features_output_path = os.path.join(output_dir, 'features.pkl')
+    with open(features_output_path, 'wb') as f:
+      pickle.dump(feature_dict, f, protocol=4)
+  
+  else:
+    logging.info('Using precomputed msa features...')
+    with open(f'{output_dir}/msa_features.pkl', 'rb') as handle:
+      feature_dict = pickle.load(handle)
 
+    # Check feat integrity
+    keycheck = ['aatype', 'between_segment_residues', 'domain_name', 'residue_index', 'seq_length', 'sequence', 'deletion_matrix_int', 'msa', 'num_alignments', 'msa_species_identifiers', 'template_aatype', 'template_all_atom_masks', 'template_all_atom_positions', 'template_domain_names', 'template_sequence', 'template_sum_probs']
+    # Add empty keys to run properly (Fix for cfold feature files)
+    for key in keycheck:
+      if 'template' in key:
+        feature_dict[key] = []
 
-  timings['features'] = time.time() - t_0
-  # Kill if seq_only==True
-  if FLAGS.seq_only:
-    logging.info('Exiting since --seq_only is True... ')
-    sys.exit()
-
-  # Write out features as a pickled dictionary.
-  features_output_path = os.path.join(output_dir, 'features_dropout.pkl')
-  with open(features_output_path, 'wb') as f:
-    pickle.dump(feature_dict, f, protocol=4)
-
-  unrelaxed_pdbs = {}
-  unrelaxed_proteins = {}
-  relaxed_pdbs = {}
-  relax_metrics = {}
-  ranking_confidences = {}
- 
-  # Run the models.
   num_models = len(model_runners)
-  rand_indices = []
-  mtu = FLAGS.models_to_use[0]
 
   for model_index, (model_name, model_runner) in enumerate(model_runners.items()):
+    unrelaxed_pdb_path = os.path.join(output_dir, f'unrelaxed_{model_name}.pdb')
+    if os.path.exists(unrelaxed_pdb_path):
+      # print(f'Model exists. {unrelaxed_pdb_path}')
+      logging.info(f'Model exists. {unrelaxed_pdb_path}')
+      continue
+
+    # initialize run
     logging.info('Initializing model %s on %s', model_name, fasta_name)
     t_0 = time.time()
       
     model_random_seed = model_index + random_seed * num_models
+    rand_fd = copy.deepcopy(feature_dict)
+    msa = rand_fd['msa']
 
-    if FLAGS.msa_rand_fraction>0:
-      logging.info('Randomizing MSA features for model %s on %s', model_name, fasta_name)
-      rand_fd = copy.deepcopy(feature_dict)
-      nres = rand_fd['msa'].shape[1]
-      columns_to_randomize = np.random.choice(range(0, nres), size=int(nres*FLAGS.msa_rand_fraction), replace=False) # Without replacement
-      print('Randomizing MSAs')
-      randomized_array = rand_fd['msa']
-
+    # Reference for aa codes -> IDS (https://github.com/iamysk/AFsample2/blob/38fba468f5e5031e1b65481cf8fe74ffc04b2b64/AF_multitemplate/alphafold/common/residue_constants.py#L633)
+    if FLAGS.method=='afsample2':
+      logging.info(f'Running AFsample2, Substitution: X (Unknown), Randomization {FLAGS.msa_rand_fraction} %')
+      columns_to_randomize = get_columns_to_randomize(msa, FLAGS.method)
+      logging.info(f'Perturbing positions {columns_to_randomize}')
       for col in columns_to_randomize:
-          randomized_array[1:, col] = np.array([20]*(rand_fd['msa'].shape[0]-1))  # Replace MSA columns with X (20)
-          # randomized_array[:, col] = np.array([20]*rand_fd['msa'].shape[0])
-          # randomized_array[:, col] = np.random.randint(0, 22, size=rand_fd['msa'].shape[0])  # Randomize the selected column
-      rand_fd['msa']=randomized_array
+        msa[1:, col] = np.array([20]*(rand_fd['msa'].shape[0]-1))  # Replace MSA columns with X (20)
+      rand_fd['msa']=msa
       processed_feature_dict = model_runner.process_features(rand_fd, random_seed=model_random_seed)
-      rand_indices.append((model_name,columns_to_randomize))
 
-    else:
-      logging.info(f'MSA randomisation set to {FLAGS.msa_rand_fraction}. Running at default values.\n')
+    elif FLAGS.method=='speachaf':
+      logging.info(f'Running SPEACH_AF, Substitution: A (Alanine)')
+      assert FLAGS.msa_perturbation_mode=='profile', f'msa_perturbation_mode must be set to profile for speachaf'
+      columns_to_randomize = get_columns_to_randomize(msa, FLAGS.method)
+      logging.info(f'Perturbing positions {columns_to_randomize}')
+      for col in columns_to_randomize:
+        realcol = msa[:, col]
+        realcol[realcol != 21] = 0
+        msa[:, col] = realcol  # Replace MSA columns, including first sequence, excluding gaps (-) with A (0)
+      # randomized_array[:, col] = np.array([20]*rand_fd['msa'].shape[0])
+      # randomized_array[:, col] = np.random.randint(0, 22, size=rand_fd['msa'].shape[0])  # Randomize the selected column
+
+      rand_fd['msa']=msa
+      processed_feature_dict = model_runner.process_features(rand_fd, random_seed=model_random_seed)
+
+    elif FLAGS.method=='af2':   # No randomization
+      logging.info(f'mNo MSA perturbation. Running at default values.\n')
       processed_feature_dict = model_runner.process_features(feature_dict, random_seed=model_random_seed)
+      columns_to_randomize=None
+    
+    else:
+      logging.info(f'Incorrect method, select from ["afsample2", "speachaf", "af2"]')
+      logging.info('Exiting!!')
+      sys.exit(1)
 
     timings[f'process_features_{model_name}'] = time.time() - t_0
 
     t_0 = time.time()
-    prediction_result = model_runner.predict(processed_feature_dict,
-                                             random_seed=model_random_seed)
+    prediction_result = model_runner.predict(processed_feature_dict, random_seed=model_random_seed)
     t_diff = time.time() - t_0
     timings[f'predict_and_compile_{model_name}'] = t_diff
     logging.info(
@@ -294,30 +364,34 @@ def predict_structure(
           model_name, fasta_name, t_diff)
 
     plddt = prediction_result['plddt']
-    ranking_confidences[model_name] = prediction_result['ranking_confidence']
 
     # Save the model outputs.
-    if FLAGS.dropout:
-        result_output_path = os.path.join(output_dir, f'result_{model_name}_dropout.pkl')
-    else:
-        result_output_path = os.path.join(output_dir, f'result_{model_name}_vanilla.pkl')
-
-    # Save confidence scores
-    f = open(f'{output_dir}/confidence_af_{mtu}.txt', 'a+')
-    f.write(fasta_name+','+model_name+','+str(ranking_confidences[model_name])+'\n')
-    f.close
-
+    result_output_path = os.path.join(output_dir, f'result_{model_name}.pkl')
     # Remove jax dependency from results.
     np_prediction_result = _jnp_to_np(dict(prediction_result))
 
     with open(result_output_path, 'wb') as f:
       keys_to_remove=['distogram', 'experimentally_resolved', 'masked_msa','aligned_confidence_probs']
-      #keys_to_remove=['experimentally_resolved', 'masked_msa','aligned_confidence_probs']
+      # keys_to_remove=['experimentally_resolved', 'masked_msa','aligned_confidence_probs']
       for k in keys_to_remove:
         if k in np_prediction_result:
           del(np_prediction_result[k])
+      
+      np_prediction_result['X_msa_indexes']=columns_to_randomize
+      np_prediction_result['perturbed_msa']=rand_fd['msa']
       pickle.dump(np_prediction_result, f, protocol=4)
 
+    # Save json fle with metrics
+    json_out=result_output_path+'.json'
+    d_keep={}
+    keys=['ranking_confidence','ptm','iptm']
+    for key in keys:
+        if key in np_prediction_result.keys():
+            d_keep[key]=float(np_prediction_result[key])
+
+    with open(json_out, "w") as f:
+        json.dump(d_keep, f)
+    
     # Add the predicted LDDT in the b-factor column.
     # Note that higher predicted LDDT value means higher model confidence.
     plddt_b_factors = np.repeat(
@@ -329,20 +403,14 @@ def predict_structure(
         remove_leading_feature_dimension=not model_runner.multimer_mode)
 
     unrelaxed_pdb = protein.to_pdb(unrelaxed_protein)
-    
-    if FLAGS.dropout:
-      unrelaxed_pdb_path = os.path.join(output_dir, f'unrelaxed_{model_name}_dropout.pdb')
-    else:
-      unrelaxed_pdb_path = os.path.join(output_dir, f'unrelaxed_{model_name}.pdb')
-
     with open(unrelaxed_pdb_path, 'w') as f:
       f.write(unrelaxed_pdb)
     f.close()
 
-  # Save rand column indices
-  with open(f'{output_dir}/{mtu}_rand_indices.pkl', 'wb') as f:
-    pickle.dump(rand_indices, f)
-  f.close()
+  # # Save rand column indices
+  # with open(f'{output_dir}/{mtu}_rand_indices.pkl', 'wb') as f:
+  #   pickle.dump(rand_indices, f)
+  # f.close()
 
   logging.info('Final timings for %s: %s', fasta_name, timings)
 
@@ -455,6 +523,7 @@ def main(argv):
         model_config.model.embeddings_and_evoformer.cross_chain_templates_only = True
     else:
       model_config.data.eval.num_ensemble = num_ensemble
+      model_config.data.common.num_recycle = FLAGS.max_recycles #bw IMPORTANT needed for monomer pipeline 20240518
     model_config.model.num_recycle = FLAGS.max_recycles
     model_config.model.global_config.eval_dropout = FLAGS.dropout
     model_config.model.recycle_early_stop_tolerance=FLAGS.early_stop_tolerance

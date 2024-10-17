@@ -54,26 +54,34 @@ Follow the steps to generate a diverse conformational ensemble for a given ```<f
 ```bash
 '''
 # Inputs: 
-# <models_to_use>: Path to generated models
-# <fasta_paths>: Reference PDB of state1
-# <msa_rand_fraction>: Reference PDB of state1
+# <method>: Method to run among afsample2, afsample, speachaf or vanilla af2
+# <fasta_paths>: path to .fasta file
+# <flagfile> : AF2 specific parameter file
+# <nstruct>: Number of structures to generate
+# <msa_rand_fraction>: % MSA randomization in random msa_perturbation_mode
+# <models_to_use>: (Optional) AF2 model to use (model_1, model_2 ...)
 
 # Outputs:
 # <output_dir>: Path to output directory
 '''
 
-# Example usage
-python AF_multitemplate/run_alphafold.py --models_to_use model_1
-	--fasta_paths example/8E6Y/8E6Y.fasta      
-	--output_dir example/8E6Y
-	--msa_rand_fraction 0.1
-	--flagfile AFmultitemplate/monomer_full_dbs.flag
+# Example usage (AFsample2)
+python AF_multitemplate/run_alphafold.py --method afsample2	\
+       --fasta_paths examples/P31133/P31133.fasta \
+       --flagfile AF_multitemplate/monomer_full_dbs.flag \
+       --nstruct 1	\
+       --msa_rand_fraction 0.20 \
+       --models_to_use model_3_ptm \
+	   --output_dir examples/
 
-```
+# Useful flags
 
-### Diversity analysis and state identification
-
-Analyse model ensemble to generate diversity plot if reference is available. In case references are not available, identify possible states.
+| flag | Options | Usage |
+| --- | --- | --- |
+| --msa_perturbation_mode| random, profile | To choose MSA perturbation mode |
+| --use_precomputed_features| Bool| Whether to use precomputed features.pkl file |
+										 
+### Diversity analysis and state identification,,javailable, identify possible states.
 
 ```bash
 '''

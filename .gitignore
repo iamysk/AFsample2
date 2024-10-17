@@ -4,3 +4,6 @@ notebooks/
 **/__pycache__/
 *.pyc
 ROSETTA_CRASH.log
+*.pdb
+*.json
+*.pkl
