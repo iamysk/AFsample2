@@ -1,4 +1,4 @@
-name: AFsample2_env
+name: AFsample2
 channels:
   - conda-forge
   - bioconda

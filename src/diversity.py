@@ -47,9 +47,16 @@ class Quantification:
         return fill_ratio
 
 if __name__ == "__main__":
-    # Load data
-    with open('../master_data/filtered_dict.pickle', 'rb') as handle:
-        filtered_dict = pickle.load(handle)
+    parser = argparse.ArgumentParser(description='Analyse generated model ensemble')
+    parser.add_argument('--afout_path', required=True, help='Path to generated models')
+    parser.add_argument('--pdb_state1', required=True, help='Reference PDB of state1')
+    parser.add_argument('--pdb_state2', required=True, help='Reference PDB of state2')
+    parser.add_argument('--outpath', default='results/', help='Output path')
+
+    args = parser.parse_args()
+
+    model_analyzer = EnsembleAnalyzer(args.afout_path, args.pdb_state1, args.pdb_state2, args.outpath)
+    model_analyzer.analyze_models()
 
     # Filter good examples
     good_examples = {k: v for k, v in filtered_dict.items() if v is not None and v[3] < 0.85}
