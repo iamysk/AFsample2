@@ -165,7 +165,7 @@ flags.DEFINE_boolean('cross_chain_templates_only', False, 'Whether to include cr
 flags.DEFINE_boolean('separate_homomer_msas', False, 'Whether to force separate processing of homomer MSAs')
 flags.DEFINE_list('models_to_use', None, 'specify which models in model_preset that should be run')
 flags.DEFINE_float('msa_rand_fraction', 0, 'Level of MSA randomization (0-1)', lower_bound=0, upper_bound=1)
-flags.DEFINE_enum('method', 'afsample2', ['afsample2', 'speachaf', 'af2'], 'Choose method from <afsample2, speachaf, af2>')
+flags.DEFINE_enum('method', 'afsample2', ['afsample2', 'speachaf', 'af2', 'msasubsampling'], 'Choose method from <afsample2, speachaf, af2>')
 flags.DEFINE_enum('msa_perturbation_mode', 'random', ['random', 'profile'], 'msa_perturbation_mode')
 flags.DEFINE_string('msa_perturbation_profile', None, 'A file containing the frequency for the residues that could be randomized')
 flags.DEFINE_boolean('use_precomputed_features', False, 'Whether to use precomputed msafeatures')
@@ -284,8 +284,8 @@ def predict_structure(
     logging.info('Using precomputed msa features...')
     with open(f'{output_dir}/msa_features.pkl', 'rb') as handle:
       feature_dict = pickle.load(handle)
-
-    # Check feat integrity
+    
+    # Check feat integrity (for CFOLD)
     keycheck = ['aatype', 'between_segment_residues', 'domain_name', 'residue_index', 'seq_length', 'sequence', 'deletion_matrix_int', 'msa', 'num_alignments', 'msa_species_identifiers', 'template_aatype', 'template_all_atom_masks', 'template_all_atom_positions', 'template_domain_names', 'template_sequence', 'template_sum_probs']
     # Add empty keys to run properly (Fix for cfold feature files)
     for key in keycheck:
@@ -293,6 +293,8 @@ def predict_structure(
         feature_dict[key] = []
 
   num_models = len(model_runners)
+  logging.info(model_runners.keys())
+  print(feature_dict.keys())
 
   for model_index, (model_name, model_runner) in enumerate(model_runners.items()):
     unrelaxed_pdb_path = os.path.join(output_dir, f'unrelaxed_{model_name}.pdb')
@@ -309,6 +311,9 @@ def predict_structure(
     rand_fd = copy.deepcopy(feature_dict)
     msa = rand_fd['msa']
 
+    ###################################
+    # AFSAMPLE2
+    ###################################
     # Reference for aa codes -> IDS (https://github.com/iamysk/AFsample2/blob/38fba468f5e5031e1b65481cf8fe74ffc04b2b64/AF_multitemplate/alphafold/common/residue_constants.py#L633)
     if FLAGS.method=='afsample2':
       logging.info(f'Running AFsample2, Substitution: X (Unknown), Randomization {FLAGS.msa_rand_fraction} %')
@@ -316,9 +321,13 @@ def predict_structure(
       logging.info(f'Perturbing positions {columns_to_randomize}')
       for col in columns_to_randomize:
         msa[1:, col] = np.array([20]*(rand_fd['msa'].shape[0]-1))  # Replace MSA columns with X (20)
-      rand_fd['msa']=msa
+      rand_fd['msa'] = msa
+
       processed_feature_dict = model_runner.process_features(rand_fd, random_seed=model_random_seed)
 
+    ###################################
+    # SPEACHAF
+    ###################################
     elif FLAGS.method=='speachaf':
       logging.info(f'Running SPEACH_AF, Substitution: A (Alanine)')
       assert FLAGS.msa_perturbation_mode=='profile', f'msa_perturbation_mode must be set to profile for speachaf'
@@ -334,11 +343,29 @@ def predict_structure(
       rand_fd['msa']=msa
       processed_feature_dict = model_runner.process_features(rand_fd, random_seed=model_random_seed)
 
+    ###################################
+    # AFvanilla
+    ###################################
     elif FLAGS.method=='af2':   # No randomization
       logging.info(f'mNo MSA perturbation. Running at default values.\n')
       processed_feature_dict = model_runner.process_features(feature_dict, random_seed=model_random_seed)
       columns_to_randomize=None
     
+    ###################################
+    # MSAsubsampling
+    ###################################
+    elif FLAGS.method=='msasubsampling':
+      if FLAGS.msa_rand_fraction>0:
+        logging.info(f'msa_rand_fraction overridden to 0 as method set to {FLAGS.method}')
+      # MSA subsampling implementaion (https://elifesciences.org/articles/75751
+      max_extra_msa = random.choice([16, 32, 64, 128, 256, 512, 1024, 5120])
+      model_runner.config.data.common.max_extra_msa = int(max_extra_msa)
+      model_runner.config.data.eval.max_msa_clusters = int(min(max_extra_msa/2, 512))
+      processed_feature_dict = model_runner.process_features(rand_fd, random_seed=model_random_seed)
+      # logging.info('msasubsampling params adjusted (max_extra_msa, max_msa_clusters)', 
+      #              int(max_extra_msa), 
+      #              int(min(max_extra_msa/2, 512)))
+
     else:
       logging.info(f'Incorrect method, select from ["afsample2", "speachaf", "af2"]')
       logging.info('Exiting!!')
@@ -378,7 +405,8 @@ def predict_structure(
         if k in np_prediction_result:
           del(np_prediction_result[k])
       
-      np_prediction_result['X_msa_indexes']=columns_to_randomize
+      if FLAGS.method=='afsample2':
+        np_prediction_result['X_msa_indexes']=columns_to_randomize
       np_prediction_result['perturbed_msa']=rand_fd['msa']
       pickle.dump(np_prediction_result, f, protocol=4)
 
@@ -528,6 +556,7 @@ def main(argv):
     model_config.model.num_recycle = FLAGS.max_recycles
     model_config.model.global_config.eval_dropout = FLAGS.dropout
     model_config.model.recycle_early_stop_tolerance=FLAGS.early_stop_tolerance
+
     logging.info(f'Setting max_recycles to {model_config.model.num_recycle}')
     logging.info(f'Setting early stop tolerance to {model_config.model.recycle_early_stop_tolerance}')
     logging.info(f'Setting dropout to {model_config.model.global_config.eval_dropout}')
@@ -566,7 +595,6 @@ def main(argv):
         benchmark=FLAGS.benchmark,
         random_seed=random_seed,
         models_to_relax=FLAGS.models_to_relax)
-
 
 if __name__ == '__main__':
   flags.mark_flags_as_required([
