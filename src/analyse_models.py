@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# Copyright 2024 Yogesh Kalakoti, Linkoping University
+# Copyright 2024 Yogesh Kalakoti (WallnerLab), Linkoping University, Sweden
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -165,12 +165,11 @@ class EnsembleAnalyzer:
         self,
         jobid: str,
         afout_path: str,
-        clustering: bool,
-        ncpu: int,
-        outpath: str = 'results/',
         pdb_state1: Optional[str] = None,
         pdb_state2: Optional[str] = None,
-        
+        outpath: str = 'results/',
+        ncpu: Optional[int]=4,
+        clustering: Optional[str]=False
     ):
         self.jobid = jobid
         self.afout_path = Path(afout_path)
@@ -261,7 +260,7 @@ class EnsembleAnalyzer:
     def run_tmalign(self, models: list, reference: str, mode: str)-> pd.DataFrame:
         args = [(model, reference) for model in models]
 
-        with Pool(processes=self.ncpu) as pool:
+        with Pool(processes=1) as pool:
             results = list(tqdm(pool.starmap(self.process_model, args), total=len(models), desc="Running TM-align"))
 
         df = pd.DataFrame(results)
@@ -323,17 +322,18 @@ class EnsembleAnalyzer:
         tmoutdir = self.outpath / self.jobid / 'tmout'
         tmoutdir.mkdir(parents=True, exist_ok=True)
 
+        print(self.pdb_state1, self.pdb_state2)
         if self.pdb_state1 is None or self.pdb_state2 is None:
             reference = False
-            logger.info('========== Running TM-align with msot confident model ==========')
             tmdf = self.run_tmalign(models, top_confident_model, mode='best')
             confidence_df['model'] = confidence_df['model'].astype(str).str.strip()
             tmdf['model'] = tmdf['model'].astype(str).str.strip()
 
             merged_df = pd.merge(confidence_df, tmdf, on='model')            
 
-            if self.clustering:
-                logger.info('Initializing Rosetta clustering since clustering=True')
+            logger.info(self.clustering)
+            if self.clustering==True:
+                logger.info(f'Initializing Rosetta clustering since clustering={self.clustering}')
                 self.pdb_state1, self.pdb_state2, filtered_df = self.get_state.calculate_states(
                     merged_df, lowconf_indices
                 )
@@ -355,11 +355,12 @@ class EnsembleAnalyzer:
                 self.pdb_state1, self.pdb_state2 = state1['model'], state2['model']
                 #logger.info(f'Identified states: {self.pdb_state1}, {self.pdb_state2}')
                 filtered_df = conf_filtered
+
         else:
             reference = True
             logger.info(f'Received reference PDBs: {self.pdb_state1}, {self.pdb_state2}')
 
-        logger.info('========== Running TM-align with identified states ==========')
+        logger.info('========== Running TM-align with states ==========')
 
         if reference:
             #bestmodel_id = self.align_models(top_confident_model, tmoutdir)
@@ -379,11 +380,13 @@ class EnsembleAnalyzer:
         print(final_df.head())
         logger.info(f'Alignments done. TM-align outputs saved at {self.afout_path}')
         final_outfile = self.outpath / self.jobid / f'final_df_{self.jobid}_s1-s2.csv'
+        
         try:
             final_df.to_csv(final_outfile, index=False)
             logger.info(f'>> Identified state 1: {self.pdb_state1}')
             logger.info(f'>> Identified state 2: {self.pdb_state2}')
             logger.info(f'>> Results CSV saved at {final_outfile}')
+            return final_outfile
         except Exception as e:
             logger.error(f"Failed to save results CSV: {e}")
             raise
@@ -394,7 +397,7 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument('--afout_path', required=True, help='Path to generated models')
     parser.add_argument('--pdb_state1', help='Reference PDB of state1')
     parser.add_argument('--pdb_state2', help='Reference PDB of state2')
-    parser.add_argument('--clustering', action='store_true', help='Enable clustering of models')
+    parser.add_argument('--clustering', default=False, help='Enable clustering of models')
     parser.add_argument('--outpath', default='results/', help='Output path')
     parser.add_argument('--ncpu', default=1, type=int, help='ncpu')
 
