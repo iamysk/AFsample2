@@ -55,7 +55,7 @@ Follow the steps to generate a diverse conformational ensemble for a given ```<f
 
 '''
 Inputs: 
-<method>: Method to run among afsample2, afsample, speachaf or vanilla af2
+<method>: Method to run among ['afsample2', 'speachaf', 'af2', 'msasubsampling']
 <fasta_paths>: path to .fasta file
 <flagfile> : AF2 specific parameter file
 <nstruct>: Number of structures to generate
@@ -67,13 +67,14 @@ Inputs:
 '''
 
 # Example usage (AFsample2)
-python AF_multitemplate/run_alphafold.py --method afsample2	\
-       --fasta_paths examples/P31133/P31133.fasta \
-       --flagfile AF_multitemplate/monomer_full_dbs.flag \
-       --nstruct 1	\
-       --msa_rand_fraction 0.20 \
-       --models_to_use model_3_ptm \
-       --output_dir examples/								 
+python AF_multitemplate/run_afsample2.py --method afsample2 \
+		--fasta_paths examples/P31133/P31133.fasta \
+		--flagfile AF_multitemplate/monomer_full_dbs.flag \
+		--nstruct 1 \
+		--msa_rand_fraction 0.20 \
+		--model_preset=monomer \
+		--output_dir examples/	
+
 ```
 Other useful flags (run ```<AF_multitemplate/run_alphafold.py --help>``` for more details)
 | flag | Options | Usage |
@@ -104,12 +105,6 @@ python src/analyse_models.py --afout_path examples/8E6Y/ \
 
 # Example usage (If references not available)
 python src/analyse_models.py --jobid 8E6Y --afout_path examples/8E6Y/ --clustering=False --ncpu=16      
-
-```
-
-### Clustering and reference-free state determination
-```bash
-$ pip install af_sample2
 
 ```
 
