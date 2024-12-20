@@ -362,6 +362,7 @@ def predict_structure(
       model_runner.config.data.common.max_extra_msa = int(max_extra_msa)
       model_runner.config.data.eval.max_msa_clusters = int(min(max_extra_msa/2, 512))
       processed_feature_dict = model_runner.process_features(rand_fd, random_seed=model_random_seed)
+      
       # logging.info('msasubsampling params adjusted (max_extra_msa, max_msa_clusters)', 
       #              int(max_extra_msa), 
       #              int(min(max_extra_msa/2, 512)))
@@ -407,7 +408,7 @@ def predict_structure(
       
       if FLAGS.method=='afsample2':
         np_prediction_result['X_msa_indexes']=columns_to_randomize
-      np_prediction_result['perturbed_msa']=rand_fd['msa']
+      # np_prediction_result['perturbed_msa']=rand_fd['msa']
       pickle.dump(np_prediction_result, f, protocol=4)
 
     # Save json fle with metrics
