@@ -108,6 +108,32 @@ python src/analyse_models.py --jobid 8E6Y --afout_path examples/8E6Y/ --clusteri
 
 ```
 
+## Datasets and reproducibility
+
+All data and scripts required to generate the plots in the manuscript are provided [here](https://zenodo.com). The data structure is as follows.
+
+```
+.
+├── analysis_results
+├── generated_models
+│   ├── oc23
+│   │   ├── afcluster
+│   │   ├── afsample
+│   │   ├── afsample2
+│   │   ├── afvanilla
+│   │   └── msasubsampling
+│   └── tp16
+└── input_datasets
+    ├── oc23
+    │   ├── fastas
+    │   ├── msas
+    │   └── pdbs
+    └── tp16
+        ├── fastas
+        ├── msas
+        └── pdbs
+```
+
 ## How to Cite
 ```
 @article {Kalakoti2024.05.28.596195,
