@@ -110,7 +110,7 @@ python src/analyse_models.py --jobid 8E6Y --afout_path examples/8E6Y/ --clusteri
 
 ## Datasets and reproducibility
 
-All data and scripts required to generate the plots in the manuscript are provided [here](https://zenodo.com). The data structure is as follows.
+All data and scripts required to generate the plots in the manuscript are provided [here](https://zenodo.org/records/14534088?preview=1&token=eyJhbGciOiJIUzUxMiJ9.eyJpZCI6IjY0MGY1OThlLWIxN2QtNDNmNy05NGE0LTg1NWFiYzE3MTIyNSIsImRhdGEiOnt9LCJyYW5kb20iOiI4NmY5MDU5NjQ3MWQyZmFlZWE1ZWFlYmIwYjRjMGE0ZSJ9.G0VvOWpri5ehL2BephKUC0F0FoSnVuxCUalJtIPeQVkVCAnVnip6Ob89uJchmwYMpKizpAB-v30zVCTie59rww). The data structure is as follows.
 
 ```
 .
