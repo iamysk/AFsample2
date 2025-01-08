@@ -96,16 +96,42 @@ Inputs:
 '''
 
 # Example usage (If references available)
-python src/analyse_models.py --afout_path examples/8E6Y/ \
+python src/analyse_models.py --method afsample2 \
+	--protein 8E6Y \
+	--afout_path examples/8E6Y/ \
 	--pdb_state1 examples/8E6Y/referencea/2fs1_A.pdb \
 	--pdb_state2 examples/8E6Y/referencea/8e6y_A.pdb \
-	--jobid 8E6Y \
-	--clustering=False
+	--clustering=False	\
 	--ncpu=16
+```
 
-# Example usage (If references not available)
-python src/analyse_models.py --jobid 8E6Y --afout_path examples/8E6Y/ --clustering=False --ncpu=16      
+OUTPUT:
+```bash
+     ___    ______                           __    ___ 
+    /   |  / ____/________ _____ ___  ____  / /__ |__ 
+   / /| | / /_  / ___/ __ `/ __ `__ \/ __ \/ / _ \__/ /
+  / ___ |/ __/ (__  ) /_/ / / / / / / /_/ / /  __/ __/ 
+ /_/  |_/_/   /____/\__,_/_/ /_/ /_/ .___/_/\___/____/ 
+                                  /_/                  
+     
+2025-01-08 14:23:02,328 [INFO] Analyzing models...
+2025-01-08 14:23:02,328 [INFO] Reference state1, state2: examples/8E6Y/referencea/2fs1_A.pdb, examples/8E6Y/referencea/8e6y_A.pdb
+2025-01-08 14:23:02,329 [INFO] Found 10 models in examples/8E6Y
+2025-01-08 14:23:02,708 [INFO] Low confidence (mean plddt<50) residue indices: []
+2025-01-08 14:23:02,711 [INFO] Most confident model: examples/8E6Y/unrelaxed_model_1_pred_4_dropout.pdb, Confidence: 86.42021052631578
+examples/8E6Y/referencea/2fs1_A.pdb examples/8E6Y/referencea/8e6y_A.pdb
+2025-01-08 14:23:02,712 [INFO] Received reference PDBs: examples/8E6Y/referencea/2fs1_A.pdb, examples/8E6Y/referencea/8e6y_A.pdb
+TM-align (examples/8E6Y/referencea/2fs1_A.pdb - models): 100%|██| 10/10 [00:00<00:00, 245280.94it/s]
+TM-align (examples/8E6Y/referencea/8e6y_A.pdb - models): 100%|██| 10/10 [00:00<00:00, 170500.16it/s]
+2025-01-08 14:23:03,116 [INFO] Alignments done. TM-align outputs saved at examples/8E6Y
+2025-01-08 14:23:03,126 [INFO] >> State 1: examples/8E6Y/referencea/2fs1_A.pdb
+2025-01-08 14:23:03,126 [INFO] >> State 2: examples/8E6Y/referencea/8e6y_A.pdb
+2025-01-08 14:23:03,126 [INFO] >> Results CSV saved at results/afsample2/final_df_8E6Y_s1-s2.csv
+```
 
+```
+# Example usage (If references NOT available)
+python src/analyse_models.py --method afsample2 --protein 8E6Y --afout_path examples/8E6Y/  --clustering=False--ncpu=16   
 ```
 
 ## Datasets and reproducibility
