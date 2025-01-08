@@ -44,8 +44,8 @@ logger = logging.getLogger(__name__)
 
 
 class GetState:
-    def __init__(self, jobid: str, radius: int):
-        self.jobid = jobid
+    def __init__(self, method: str, radius: int):
+        self.method = method
         self.radius = radius
 
     def read_clusterfile(self, clusterfile: str) -> pd.DataFrame:
@@ -74,10 +74,10 @@ class GetState:
         confidence_df: pd.DataFrame,
         lowconf_indices: np.ndarray
     ) -> Tuple[str, str, pd.DataFrame]:
-        tempdir = Path(f'temp/{self.jobid}')
+        tempdir = Path(f'temp/{self.method}')
         tempdir.mkdir(parents=True, exist_ok=True)
 
-        input_file = tempdir / f'{self.jobid}.txt'
+        input_file = tempdir / f'{self.method}.txt'
         try:
             confidence_df['model_path'].to_csv(input_file, index=False, header=False)
             logger.info(f"Input file for Rosetta clustering created at {input_file}")
@@ -159,11 +159,11 @@ class GetState:
 
         return state1['model'], state2['model'], rand_df_clusters
 
-
 class EnsembleAnalyzer:
     def __init__(
         self,
-        jobid: str,
+        method: str,
+        protein: str,
         afout_path: str,
         pdb_state1: Optional[str] = None,
         pdb_state2: Optional[str] = None,
@@ -171,58 +171,37 @@ class EnsembleAnalyzer:
         ncpu: Optional[int]=4,
         clustering: Optional[str]=False
     ):
-        self.jobid = jobid
+        self.method = method
+        self.protein = protein
         self.afout_path = Path(afout_path)
         self.pdb_state1 = pdb_state1
         self.pdb_state2 = pdb_state2
         self.outpath = Path(outpath)
         self.clustering = clustering
         self.ncpu = ncpu
-        self.get_state = GetState(jobid, radius=1)
+        self.get_state = GetState(method, radius=1)
 
-    # def read_tmout(self, filepath: Path) -> Tuple[float, float]:
-    #     tm_score = rmsd = 0.0
-    #     try:
-    #         with filepath.open('r') as file:
-    #             for line in file:
-    #                 if 'user-specified d0' in line:
-    #                     tm_score = float(line.split()[1])
-    #                 if 'RMSD' in line:
-    #                     parts = line.split()
-    #                     try:
-    #                         rmsd = float(parts[7].rstrip(','))
-    #                     except IndexError:
-    #                         rmsd = float(parts[8].rstrip(','))
-    #     except FileNotFoundError:
-    #         logger.error(f"TM-out file not found: {filepath}")
-    #         raise
-    #     except Exception as e:
-    #         logger.error(f"Error reading TM-out file {filepath}: {e}")
-    #         raise
+        for pdb_path in [self.pdb_state1, self.pdb_state2]:
+            if pdb_path and not Path(pdb_path).exists():
+                sys.exit('Ref. states not found')
 
-    #     return tm_score, rmsd
-
-    def calculate_bfactors(self, pdb_file: Path) -> List[float]:
+    def getbfactors(self, pdb_file):
         parser = PDBParser(QUIET=True)
-        try:
-            structure = parser.get_structure('pdb_structure', str(pdb_file))
-        except Exception as e:
-            logger.error(f"Error parsing PDB file {pdb_file}: {e}")
-            raise
-
-        per_res_bfactors = []
-        for model in structure:
-            for chain in model:
-                for residue in chain:
-                    if len(residue) == 0:
-                        continue
-                    b_factors = [atom.bfactor for atom in residue]
-                    average_b = np.mean(b_factors)
-                    per_res_bfactors.append(average_b)
-
-        return per_res_bfactors
-
+        structure = parser.get_structure('structure', pdb_file)
+        b_factors = [
+            np.mean([atom.get_bfactor() for atom in residue])
+            for chain in structure[0]
+            for residue in chain
+        ]
+        return b_factors
     
+    def process_bfactors_multiprocessing(self, af2_model_files):
+        with Pool() as pool:
+            per_residue_bfactor = list(tqdm(pool.imap(self.getbfactors, af2_model_files), desc="Getting B-factors", total=len(af2_model_files)))
+
+        per_residue_bfactor = np.array(per_residue_bfactor)
+        return af2_model_files, per_residue_bfactor
+
     def tmalign_and_extract_scores(self, pdb1, pdb2, tmalign_path='TMalign'):
         try:
             result = subprocess.run([tmalign_path, pdb1, pdb2, '-d', '3.5'], capture_output=True, text=True, check=True)
@@ -260,7 +239,7 @@ class EnsembleAnalyzer:
     def run_tmalign(self, models: list, reference: str, mode: str)-> pd.DataFrame:
         args = [(model, reference) for model in models]
 
-        with Pool(processes=1) as pool:
+        with Pool(processes=self.ncpu) as pool:
             results = list(tqdm(pool.starmap(self.process_model, args), total=len(models), desc="Running TM-align"))
 
         df = pd.DataFrame(results)
@@ -290,27 +269,19 @@ class EnsembleAnalyzer:
         logger.info(f'Reference state1: {self.pdb_state1}')
         logger.info(f'Reference state2: {self.pdb_state2}')
 
-        overall_confidences = []
-        per_residue_confidences = []
-
-        models = list(self.afout_path.glob("unrelaxed*.pdb"))
+        if self.method=='SPEACH_AF':
+            models = glob.glob(f'{self.afout_path}_*/unrelaxed*.pdb')
+        else:
+            models = glob.glob(f'{self.afout_path}/unrelaxed*.pdb')
         logger.info(f'Found {len(models)} models in {self.afout_path}')
-
-        for protein in tqdm(models, desc="Reading confidence"):
-            try:
-                bfactors = self.calculate_bfactors(protein)
-                per_residue_confidences.append(bfactors)
-                overall_confidences.append([str(protein), np.mean(bfactors)])
-            except Exception as e:
-                logger.warning(f"Skipping model {protein} due to error: {e}")
-                continue
-
-        if not overall_confidences:
+        
+        model_files, bfactors = self.process_bfactors_multiprocessing(models)
+        confidence_df = pd.DataFrame(zip(np.array(model_files).astype(str), bfactors.mean(axis=1)), columns=['model', 'confidence'])
+        if len(confidence_df)<1:
             logger.error("No models processed successfully.")
             raise ValueError("No models processed successfully.")
-
-        confidence_df = pd.DataFrame(overall_confidences, columns=['model', 'confidence'])
-        lowconf_indices = np.where(np.mean(per_residue_confidences, axis=0) < 50)[0] + 1  # 1-indexed
+        
+        lowconf_indices = np.where(np.mean(bfactors, axis=0) < 50)[0] + 1  # 1-indexed
         logger.info(f'Low confidence residue indices: {lowconf_indices}')
 
         # Get top confident model
@@ -319,7 +290,7 @@ class EnsembleAnalyzer:
         max_confidence = top_confident_df['confidence'].values[0]
         logger.info(f"Most confident model: {top_confident_model}, Confidence: {max_confidence}")
 
-        tmoutdir = self.outpath / self.jobid / 'tmout'
+        tmoutdir = self.outpath / self.method
         tmoutdir.mkdir(parents=True, exist_ok=True)
 
         print(self.pdb_state1, self.pdb_state2)
@@ -376,24 +347,26 @@ class EnsembleAnalyzer:
         f1_df = pd.merge(filtered_df, tms1_df, on='model')
         f2_df = pd.merge(filtered_df, tms2_df, on='model')
         final_df = pd.merge(f1_df, f2_df[['model', 'tm_w_s2', 'rm_w_s2']], on='model')
-
-        print(final_df.head())
+        final_df['s1'] = self.pdb_state1
+        final_df['s2'] = self.pdb_state2
+        final_df['protein'] = self.protein
         logger.info(f'Alignments done. TM-align outputs saved at {self.afout_path}')
-        final_outfile = self.outpath / self.jobid / f'final_df_{self.jobid}_s1-s2.csv'
+        final_outfile = self.outpath / self.method / f'final_df_{self.protein}_s1-s2.csv'
         
         try:
             final_df.to_csv(final_outfile, index=False)
             logger.info(f'>> Identified state 1: {self.pdb_state1}')
             logger.info(f'>> Identified state 2: {self.pdb_state2}')
             logger.info(f'>> Results CSV saved at {final_outfile}')
-            return final_outfile
+            return final_df
         except Exception as e:
             logger.error(f"Failed to save results CSV: {e}")
             raise
 
 def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description='Analyze generated model ensemble')
-    parser.add_argument('--jobid', required=True, help='Job ID')
+    parser.add_argument('--method', required=True, help='Method')
+    parser.add_argument('--protein', required=True, help='protein')
     parser.add_argument('--afout_path', required=True, help='Path to generated models')
     parser.add_argument('--pdb_state1', help='Reference PDB of state1')
     parser.add_argument('--pdb_state2', help='Reference PDB of state2')
@@ -407,7 +380,8 @@ def main():
     args = parse_arguments()
 
     analyzer = EnsembleAnalyzer(
-        jobid=args.jobid,
+        method=args.method,
+        protein=args.protein,
         afout_path=args.afout_path,
         clustering=args.clustering,
         outpath=args.outpath,
@@ -421,7 +395,6 @@ def main():
     except Exception as e:
         logger.error(f"Analysis failed: {e}")
         exit(1)
-
 
 if __name__ == "__main__":
     main()

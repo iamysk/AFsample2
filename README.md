@@ -110,28 +110,46 @@ python src/analyse_models.py --jobid 8E6Y --afout_path examples/8E6Y/ --clusteri
 
 ## Datasets and reproducibility
 
-All data and scripts required to generate the plots in the manuscript are provided [here](https://zenodo.org/records/14534088?preview=1&token=eyJhbGciOiJIUzUxMiJ9.eyJpZCI6IjY0MGY1OThlLWIxN2QtNDNmNy05NGE0LTg1NWFiYzE3MTIyNSIsImRhdGEiOnt9LCJyYW5kb20iOiI4NmY5MDU5NjQ3MWQyZmFlZWE1ZWFlYmIwYjRjMGE0ZSJ9.G0VvOWpri5ehL2BephKUC0F0FoSnVuxCUalJtIPeQVkVCAnVnip6Ob89uJchmwYMpKizpAB-v30zVCTie59rww). The data structure is as follows.
+All data and scripts required to generate the plots in the manuscript are provided [here](https://zenodo.org/records/14534088?preview=1&token=eyJhbGciOiJIUzUxMiJ9.eyJpZCI6IjY0MGY1OThlLWIxN2QtNDNmNy05NGE0LTg1NWFiYzE3MTIyNSIsImRhdGEiOnt9LCJyYW5kb20iOiI4NmY5MDU5NjQ3MWQyZmFlZWE1ZWFlYmIwYjRjMGE0ZSJ9.G0VvOWpri5ehL2BephKUC0F0FoSnVuxCUalJtIPeQVkVCAnVnip6Ob89uJchmwYMpKizpAB-v30zVCTie59rww). An overview of the directory structure, along with a description of each folder and its contents is provided in the dataset page. Extract as follows.
 
 ```
-.
-├── analysis_results
-├── generated_models
-│   ├── oc23
-│   │   ├── afcluster
-│   │   ├── afsample
-│   │   ├── afsample2
-│   │   ├── afvanilla
-│   │   └── msasubsampling
-│   └── tp16
+tar --use-compress-program=unzstd -xvf input_datasets.tar.zst
+
 └── input_datasets
     ├── oc23
-    │   ├── fastas
-    │   ├── msas
-    │   └── pdbs
+    │   ├── fastas					
+    │   ├── filtered_dict.pickle	# pdbids and stats for states
+    │   ├── msas					# in .pkl format
+    │   └── pdbs	
     └── tp16
         ├── fastas
+        ├── filtered_dict.pickle
         ├── msas
         └── pdbs
+
+tar --use-compress-program=unzstd -xvf generated_models.tar.zst
+
+└── generated_models
+   ├── oc23
+   │   ├── afsample2
+   │   ├── SPEACH_AF
+   │   ├── ...
+   └── tp16
+       ├── afsample2
+       ├── SPEACH_AF
+       ├── ...
+
+tar --use-compress-program=unzstd -xvf analysis_results.tar.zst
+
+└── analysis_results
+   ├── oc23
+   │   ├── afsample2
+   │   ├── SPEACH_AF
+   │   ├── ...
+   └── tp16
+       ├── afsample2
+       ├── SPEACH_AF
+       ├── ...
 ```
 
 ## How to Cite
