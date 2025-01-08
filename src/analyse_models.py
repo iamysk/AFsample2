@@ -197,7 +197,7 @@ class EnsembleAnalyzer:
     
     def process_bfactors_multiprocessing(self, af2_model_files):
         with Pool() as pool:
-            per_residue_bfactor = list(tqdm(pool.imap(self.getbfactors, af2_model_files), desc="Getting B-factors", total=len(af2_model_files)))
+            per_residue_bfactor = list(pool.imap(self.getbfactors, af2_model_files))
 
         per_residue_bfactor = np.array(per_residue_bfactor)
         return af2_model_files, per_residue_bfactor
@@ -240,7 +240,7 @@ class EnsembleAnalyzer:
         args = [(model, reference) for model in models]
 
         with Pool(processes=self.ncpu) as pool:
-            results = list(tqdm(pool.starmap(self.process_model, args), total=len(models), desc="Running TM-align"))
+            results = list(tqdm(pool.starmap(self.process_model, args), total=len(models), desc=f"TM-align ({reference} - models)", ncols=100))
 
         df = pd.DataFrame(results)
         df = df.rename(columns={'tm1': f'tm_w_{mode}', 'rm1': f'rm_w_{mode}'})
@@ -266,8 +266,7 @@ class EnsembleAnalyzer:
 
     def analyze_models(self):
         logger.info("Analyzing models...")
-        logger.info(f'Reference state1: {self.pdb_state1}')
-        logger.info(f'Reference state2: {self.pdb_state2}')
+        logger.info(f'Reference state1, state2: {self.pdb_state1}, {self.pdb_state2}')
 
         if self.method=='SPEACH_AF':
             models = glob.glob(f'{self.afout_path}_*/unrelaxed*.pdb')
@@ -282,7 +281,7 @@ class EnsembleAnalyzer:
             raise ValueError("No models processed successfully.")
         
         lowconf_indices = np.where(np.mean(bfactors, axis=0) < 50)[0] + 1  # 1-indexed
-        logger.info(f'Low confidence residue indices: {lowconf_indices}')
+        logger.info(f'Low confidence (mean plddt<50) residue indices: {lowconf_indices}')
 
         # Get top confident model
         top_confident_df = confidence_df.nlargest(1,'confidence')
@@ -293,7 +292,7 @@ class EnsembleAnalyzer:
         tmoutdir = self.outpath / self.method
         tmoutdir.mkdir(parents=True, exist_ok=True)
 
-        print(self.pdb_state1, self.pdb_state2)
+        #print(self.pdb_state1, self.pdb_state2)
         if self.pdb_state1 is None or self.pdb_state2 is None:
             reference = False
             tmdf = self.run_tmalign(models, top_confident_model, mode='best')
@@ -331,7 +330,7 @@ class EnsembleAnalyzer:
             reference = True
             logger.info(f'Received reference PDBs: {self.pdb_state1}, {self.pdb_state2}')
 
-        logger.info('========== Running TM-align with states ==========')
+        #logger.info('========== Running TM-align with states ==========')
 
         if reference:
             #bestmodel_id = self.align_models(top_confident_model, tmoutdir)
@@ -355,8 +354,8 @@ class EnsembleAnalyzer:
         
         try:
             final_df.to_csv(final_outfile, index=False)
-            logger.info(f'>> Identified state 1: {self.pdb_state1}')
-            logger.info(f'>> Identified state 2: {self.pdb_state2}')
+            logger.info(f'>> State 1: {self.pdb_state1}')
+            logger.info(f'>> State 2: {self.pdb_state2}')
             logger.info(f'>> Results CSV saved at {final_outfile}')
             return final_df
         except Exception as e:
@@ -377,6 +376,15 @@ def parse_arguments() -> argparse.Namespace:
     return parser.parse_args()
 
 def main():
+    print('\n \
+    ___    ______                           __    ___ \n \
+   /   |  / ____/________ _____ ___  ____  / /__ |__ \n \
+  / /| | / /_  / ___/ __ `/ __ `__ \/ __ \/ / _ \__/ /\n \
+ / ___ |/ __/ (__  ) /_/ / / / / / / /_/ / /  __/ __/ \n \
+/_/  |_/_/   /____/\__,_/_/ /_/ /_/ .___/_/\___/____/ \n \
+                                 /_/                  \n \
+    '                                                                                                                                                                                                                           
+)
     args = parse_arguments()
 
     analyzer = EnsembleAnalyzer(
