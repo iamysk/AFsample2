@@ -115,6 +115,7 @@ class DataPipeline:
   """Runs the alignment tools and assembles the input features."""
 
   def __init__(self,
+               use_precomputed_features:bool,
                jackhmmer_binary_path: str,
                hhblits_binary_path: str,
                uniref90_database_path: str,
@@ -131,30 +132,35 @@ class DataPipeline:
                input_msa: str = None,
                no_templates: bool = False,
                use_precomputed_msas: bool = False):
-    """Initializes the data pipeline."""
-    self._use_small_bfd = use_small_bfd
-    self.jackhmmer_uniref90_runner = jackhmmer.Jackhmmer(
-        binary_path=jackhmmer_binary_path,
-        database_path=uniref90_database_path)
-    if use_small_bfd:
-      self.jackhmmer_small_bfd_runner = jackhmmer.Jackhmmer(
-          binary_path=jackhmmer_binary_path,
-          database_path=small_bfd_database_path)
+
+    if use_precomputed_features:
+      self.use_precomputed_features = use_precomputed_features
+
     else:
-      self.hhblits_bfd_uniref_runner = hhblits.HHBlits(
-          binary_path=hhblits_binary_path,
-          databases=[bfd_database_path, uniref30_database_path])
-    self.jackhmmer_mgnify_runner = jackhmmer.Jackhmmer(
-        binary_path=jackhmmer_binary_path,
-        database_path=mgnify_database_path)
-    self.template_searcher = template_searcher
-    self.template_featurizer = template_featurizer
-    self.mgnify_max_hits = mgnify_max_hits
-    self.uniref_max_hits = uniref_max_hits
-    self.bfd_max_hits = bfd_max_hits
-    self.input_msa=input_msa
-    self.no_templates=no_templates
-    self.use_precomputed_msas = use_precomputed_msas
+      """Initializes the data pipeline."""
+      self._use_small_bfd = use_small_bfd
+      self.jackhmmer_uniref90_runner = jackhmmer.Jackhmmer(
+          binary_path=jackhmmer_binary_path,
+          database_path=uniref90_database_path)
+      if use_small_bfd:
+        self.jackhmmer_small_bfd_runner = jackhmmer.Jackhmmer(
+            binary_path=jackhmmer_binary_path,
+            database_path=small_bfd_database_path)
+      else:
+        self.hhblits_bfd_uniref_runner = hhblits.HHBlits(
+            binary_path=hhblits_binary_path,
+            databases=[bfd_database_path, uniref30_database_path])
+      self.jackhmmer_mgnify_runner = jackhmmer.Jackhmmer(
+          binary_path=jackhmmer_binary_path,
+          database_path=mgnify_database_path)
+      self.template_searcher = template_searcher
+      self.template_featurizer = template_featurizer
+      self.mgnify_max_hits = mgnify_max_hits
+      self.uniref_max_hits = uniref_max_hits
+      self.bfd_max_hits = bfd_max_hits
+      self.input_msa=input_msa
+      self.no_templates=no_templates
+      self.use_precomputed_msas = use_precomputed_msas
 
   def process(self, input_fasta_path: str, msa_output_dir: str) -> FeatureDict:
     """Runs alignment tools on the input sequence and creates features."""

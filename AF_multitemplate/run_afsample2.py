@@ -445,6 +445,7 @@ def predict_structure(
   logging.info('Final timings for %s: %s', fasta_name, timings)
 
 def main(argv):
+  print('HELLO_WORLD!!!')
   if len(argv) > 1:
     raise app.UsageError('Too many command-line arguments.')
 
@@ -493,18 +494,21 @@ def main(argv):
         release_dates_path=None,
         obsolete_pdbs_path=FLAGS.obsolete_pdbs_path)
   else:
-    template_searcher = hhsearch.HHSearch(
-        binary_path=FLAGS.hhsearch_binary_path,
-        databases=[FLAGS.pdb70_database_path])
-    template_featurizer = templates.HhsearchHitFeaturizer(
-        mmcif_dir=FLAGS.template_mmcif_dir,
-        max_template_date=FLAGS.max_template_date,
-        max_hits=MAX_TEMPLATE_HITS,
-        kalign_binary_path=FLAGS.kalign_binary_path,
-        release_dates_path=None,
-        obsolete_pdbs_path=FLAGS.obsolete_pdbs_path)
+    # template_searcher = hhsearch.HHSearch(
+    #     binary_path=FLAGS.hhsearch_binary_path,
+    #     databases=[FLAGS.pdb70_database_path])
+    template_searcher = None
+    template_featurizer = None
+    # template_featurizer = templates.HhsearchHitFeaturizer(
+    #     mmcif_dir=FLAGS.template_mmcif_dir,
+    #     max_template_date=FLAGS.max_template_date,
+    #     max_hits=MAX_TEMPLATE_HITS,
+    #     kalign_binary_path=FLAGS.kalign_binary_path,
+    #     release_dates_path=None,
+    #     obsolete_pdbs_path=FLAGS.obsolete_pdbs_path)
 
   monomer_data_pipeline = pipeline.DataPipeline(
+      use_precomputed_features=FLAGS.use_precomputed_features,
       jackhmmer_binary_path=FLAGS.jackhmmer_binary_path,
       hhblits_binary_path=FLAGS.hhblits_binary_path,
       uniref90_database_path=FLAGS.uniref90_database_path,
