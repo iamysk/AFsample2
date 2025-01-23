@@ -25,6 +25,7 @@ import sys
 import time
 from typing import Any, Dict, Mapping, Union
 import copy
+from pathlib import Path
 
 from absl import app
 from absl import flags
@@ -168,7 +169,9 @@ flags.DEFINE_float('msa_rand_fraction', 0, 'Level of MSA randomization (0-1)', l
 flags.DEFINE_enum('method', 'afsample2', ['afsample2', 'speachaf', 'af2', 'msasubsampling'], 'Choose method from <afsample2, speachaf, af2>')
 flags.DEFINE_enum('msa_perturbation_mode', 'random', ['random', 'profile'], 'msa_perturbation_mode')
 flags.DEFINE_string('msa_perturbation_profile', None, 'A file containing the frequency for the residues that could be randomized')
-flags.DEFINE_boolean('use_precomputed_features', False, 'Whether to use precomputed msafeatures')
+#flags.DEFINE_boolean('use_precomputed_features', False, 'Whether to use precomputed msafeatures')
+flags.DEFINE_string('precomputed_feature_path', None, 'Path to a use_precomputed_feature file '
+                    'store the results.')
 
 FLAGS = flags.FLAGS
 
@@ -266,7 +269,7 @@ def predict_structure(
 
   # Get features.
   t_0 = time.time()
-  if not FLAGS.use_precomputed_features:
+  if FLAGS.precomputed_feature_path==None:
     feature_dict = data_pipeline.process(input_fasta_path=fasta_path, msa_output_dir=msa_output_dir)
 
     timings['features'] = time.time() - t_0
@@ -282,7 +285,9 @@ def predict_structure(
   
   else:
     logging.info('Using precomputed msa features...')
-    with open(f'{output_dir}/msa_features.pkl', 'rb') as handle:
+    Path(f"{output_dir}").mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(f'{FLAGS.precomputed_feature_path}', f'{output_dir}/features.pkl')
+    with open(f'{output_dir}/features.pkl', 'rb') as handle:
       feature_dict = pickle.load(handle)
     
     # Check feat integrity (for CFOLD)
@@ -508,7 +513,7 @@ def main(argv):
     #     obsolete_pdbs_path=FLAGS.obsolete_pdbs_path)
 
   monomer_data_pipeline = pipeline.DataPipeline(
-      use_precomputed_features=FLAGS.use_precomputed_features,
+      precomputed_feature_path=FLAGS.precomputed_feature_path,
       jackhmmer_binary_path=FLAGS.jackhmmer_binary_path,
       hhblits_binary_path=FLAGS.hhblits_binary_path,
       uniref90_database_path=FLAGS.uniref90_database_path,

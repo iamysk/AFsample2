@@ -115,7 +115,7 @@ class DataPipeline:
   """Runs the alignment tools and assembles the input features."""
 
   def __init__(self,
-               use_precomputed_features:bool,
+               precomputed_feature_path:str,
                jackhmmer_binary_path: str,
                hhblits_binary_path: str,
                uniref90_database_path: str,
@@ -133,11 +133,11 @@ class DataPipeline:
                no_templates: bool = False,
                use_precomputed_msas: bool = False):
 
-    if use_precomputed_features:
-      self.use_precomputed_features = use_precomputed_features
+    if not precomputed_feature_path==None:
+      self.precomputed_feature_path = precomputed_feature_path
 
     else:
-      """Initializes the data pipeline."""
+      logging.info("""Initializing the data pipeline.""")
       self._use_small_bfd = use_small_bfd
       self.jackhmmer_uniref90_runner = jackhmmer.Jackhmmer(
           binary_path=jackhmmer_binary_path,
