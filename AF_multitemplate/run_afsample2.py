@@ -499,19 +499,21 @@ def main(argv):
         release_dates_path=None,
         obsolete_pdbs_path=FLAGS.obsolete_pdbs_path)
   else:
-    # template_searcher = hhsearch.HHSearch(
-    #     binary_path=FLAGS.hhsearch_binary_path,
-    #     databases=[FLAGS.pdb70_database_path])
-    template_searcher = None
-    template_featurizer = None
-    # template_featurizer = templates.HhsearchHitFeaturizer(
-    #     mmcif_dir=FLAGS.template_mmcif_dir,
-    #     max_template_date=FLAGS.max_template_date,
-    #     max_hits=MAX_TEMPLATE_HITS,
-    #     kalign_binary_path=FLAGS.kalign_binary_path,
-    #     release_dates_path=None,
-    #     obsolete_pdbs_path=FLAGS.obsolete_pdbs_path)
-
+    if FLAGS.precomputed_feature_path==None:
+      template_searcher = hhsearch.HHSearch(
+          binary_path=FLAGS.hhsearch_binary_path,
+          databases=[FLAGS.pdb70_database_path])
+      template_featurizer = templates.HhsearchHitFeaturizer(
+          mmcif_dir=FLAGS.template_mmcif_dir,
+          max_template_date=FLAGS.max_template_date,
+          max_hits=MAX_TEMPLATE_HITS,
+          kalign_binary_path=FLAGS.kalign_binary_path,
+          release_dates_path=None,
+          obsolete_pdbs_path=FLAGS.obsolete_pdbs_path)
+    else:
+      template_searcher = None
+      template_featurizer = None
+      
   monomer_data_pipeline = pipeline.DataPipeline(
       precomputed_feature_path=FLAGS.precomputed_feature_path,
       jackhmmer_binary_path=FLAGS.jackhmmer_binary_path,
