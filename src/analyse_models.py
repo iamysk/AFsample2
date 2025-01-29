@@ -30,6 +30,7 @@ import numpy as np
 import pandas as pd
 from Bio.PDB import PDBParser
 from tqdm import tqdm
+import matplotlib.pyplot as plt
 
 
 # Configure logging
@@ -264,12 +265,31 @@ class EnsembleAnalyzer:
         else:
             return 2, 1
 
+    def vizualize_residues(self, positions, protein_length):
+        chunk_size = 50
+        protein_representation = ['-' for _ in range(protein_length)]
+        for pos in positions:
+            protein_representation[pos] = '*'
+        
+        for i in range(0, protein_length, chunk_size):
+            chunk = protein_representation[i:i + chunk_size]
+            logger.info(f"{i:3}-{i+chunk_size-1:3}: {''.join(chunk)}")
+            
+        return None
+    
+    def plot_results(self, df, outfile):
+        fig, ax = plt.subplots(figsize=(4,4))
+        ax.scatter(df['tm_w_s1'], df['tm_w_s2'])
+        plt.tight_layout()
+        plt.savefig(outfile, format='pdf')  
+        return None
+
     def analyze_models(self):
         logger.info("Analyzing models...")
         logger.info(f'Reference state1, state2: {self.pdb_state1}, {self.pdb_state2}')
 
         if self.method=='SPEACH_AF':
-            models = glob.glob(f'{self.afout_path}_*/unrelaxed*.pdb')
+            models = glob.glob(f'{self.afout_path}/sp*/unrelaxed*.pdb')
         else:
             models = glob.glob(f'{self.afout_path}/unrelaxed*.pdb')
         logger.info(f'Found {len(models)} models in {self.afout_path}')
@@ -280,8 +300,10 @@ class EnsembleAnalyzer:
             logger.error("No models processed successfully.")
             raise ValueError("No models processed successfully.")
         
+        logger.info("Protein residues (lowconf_indices marked with '*'):")
         lowconf_indices = np.where(np.mean(bfactors, axis=0) < 50)[0] + 1  # 1-indexed
-        logger.info(f'Low confidence (mean plddt<50) residue indices: {lowconf_indices}')
+        #logger.info(f'Low confidence (mean plddt<50) residue indices: {lowconf_indices}')
+        self.vizualize_residues(lowconf_indices, len(bfactors.mean(axis=0)))
 
         # Get top confident model
         top_confident_df = confidence_df.nlargest(1,'confidence')
@@ -351,12 +373,15 @@ class EnsembleAnalyzer:
         final_df['protein'] = self.protein
         logger.info(f'Alignments done. TM-align outputs saved at {self.afout_path}')
         final_outfile = self.outpath / self.method / f'final_df_{self.protein}_s1-s2.csv'
+        final_plotfile = self.outpath / self.method / f'final_df_{self.protein}_s1-s2.pdf'
         
         try:
+            self.plot_results(final_df, final_plotfile)
             final_df.to_csv(final_outfile, index=False)
             logger.info(f'>> State 1: {self.pdb_state1}')
             logger.info(f'>> State 2: {self.pdb_state2}')
             logger.info(f'>> Results CSV saved at {final_outfile}')
+            logger.info(f'>> Results png saved at {final_plotfile}')
             return final_df
         except Exception as e:
             logger.error(f"Failed to save results CSV: {e}")
