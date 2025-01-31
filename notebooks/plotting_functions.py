@@ -51,8 +51,8 @@ class BestModelsPlotter:
     """
 
     def __init__(self, best_tms_o_path, best_tms_c_path, dataset):
-        self.best_tms_o = pd.read_csv(best_tms_o_path, index_col=0)
-        self.best_tms_c = pd.read_csv(best_tms_c_path, index_col=0)
+        self.best_tms_o = pd.read_csv(best_tms_o_path, index_col=0, compression='gzip')
+        self.best_tms_c = pd.read_csv(best_tms_c_path, index_col=0, compression='gzip')
         self.colors = sns.color_palette()
         self.dataset = dataset
         if self.dataset=='OC23':
@@ -361,7 +361,7 @@ class ProteinDataAnalyzer:
     
     def load_data(self) -> pd.DataFrame:
         """Loads the master CSV file."""
-        return pd.read_csv(self.file_path, dtype={"rand": str})
+        return pd.read_csv(self.file_path, dtype={"rand": str}, compression='gzip')
     
     def process_data(self):
         """Processes data into required formats for plotting."""
@@ -428,7 +428,7 @@ class ProteinDataAnalyzer:
         plt.tight_layout()
         plt.show()
     
-    def run_sampling_experiment(self):
+    def run_sampling_experiment(self, iterations=100):
         rands = ['vanilla', '05', '10', '15', '20', '25', '30', '35', '40', '50']
         sampling_o, sampling_c = [], []
         gk_model = self.master_df.groupby(by='rand')
@@ -445,7 +445,7 @@ class ProteinDataAnalyzer:
                 
                 for i in np.arange(50,1001,50):
                     m_o, m_c = [], []
-                    for iter in range(100):
+                    for iter in range(iterations):
                         if i>len(tm_open):
                             i=len(tm_open)
                         if i>len(tm_close):
@@ -464,8 +464,8 @@ class ProteinDataAnalyzer:
         sampling_c = np.array(sampling_c)
         return sampling_o, sampling_c
     
-    def plot_sampling_exp(self):
-        sampling_o, sampling_c = self.run_sampling_experiment()
+    def plot_sampling_exp(self, iterations):
+        sampling_o, sampling_c = self.run_sampling_experiment(iterations)
         rands = ['vanilla', '05', '10', '15', '20', '25', '30', '35', '40', '50']
         #rands == ['vanilla', 'dropout', '20']
         fig, ax = plt.subplots(1,2, figsize=(6,3), sharey=True)
@@ -497,7 +497,7 @@ class ProteinDataAnalyzer:
         plt.show()
     
     def plot_intermediates(self, intermediatespath):
-        pdbhits_df = pd.read_csv(intermediatespath)
+        pdbhits_df = pd.read_csv(intermediatespath, compression='gzip')
         pdbhits_df_f = pdbhits_df[pdbhits_df['tmscore_to_model']>0.8]
 
         afs2_tmdf = self.master_df
@@ -726,7 +726,7 @@ def load_pkl(pklpath):
 		return pickle.load(f)
 
 def plot_fluctuation_correlation(protein, data1_path, data3_path, fillratiopath):
-    fill_ratio = pd.read_csv(fillratiopath)
+    fill_ratio = pd.read_csv(fillratiopath, compression='gzip')
     fill_ratio.index = fill_ratio['Unnamed: 0']
 
     data1 = load_pkl(data1_path)
@@ -787,3 +787,39 @@ def plot_fluctuation_correlation(protein, data1_path, data3_path, fillratiopath)
     ax3.set_title(protein+f" (r: {np.round(data3[protein]['r_spear'], 2)})")
     plt.show()
     return None
+
+def check_directory_structure(root_dir, required_structure):
+    """
+    Checks if the given directory structure and files exist.
+    
+    :param root_dir: The base directory to check.
+    :param required_structure: A dictionary defining the expected directories and files.
+    :return: None
+    """
+    missing_items = []
+    print('\nChecking directory structure...')
+
+    for dir_path, files in required_structure.items():
+        full_dir_path = os.path.join(root_dir, dir_path)
+        print(full_dir_path)
+        # Check if directory exists
+        if not os.path.isdir(full_dir_path):
+            missing_items.append(f"Missing directory: {full_dir_path}")
+        else:
+            # Check for required files in the directory
+            for file in files:
+                file_path = os.path.join(full_dir_path, file)
+                if not os.path.isfile(file_path):
+                    missing_items.append(f"Missing file: {file_path}")
+
+    # Output results
+    if missing_items:
+        print("Some required directories or files are missing (Available in Zenodo):")
+        for item in missing_items:
+            print(f"  - {item}")
+    else:
+        print("All required directories and files are present.")
+
+def savedict(infile, outpath):
+    with open(outpath, 'wb') as f:
+        pickle.dump(infile, f)
