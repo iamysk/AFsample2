@@ -385,11 +385,11 @@ class ProteinDataAnalyzer:
             "confidence": df5.apply(pd.to_numeric, errors='coerce')
         }
     
-    def plot_tm_scores(self):
+    def plot_tm_scores(self, save=False):
         """Generates strip plots for TM scores."""
         df1, df2, df5 = self.processed_dfs['best_tm_open'], self.processed_dfs['best_tm_close'], self.processed_dfs['confidence']
         cp = sns.color_palette()
-        fig, ax = plt.subplots(1, 2, figsize=(7, 3.5))
+        fig, ax = plt.subplots(1, 2, figsize=(7, 3.8))
         
         for df, color, label, i in zip([df1, df2], [cp[0], cp[1]], ['Best open', 'Best close'], [0, 0]):
             sns.stripplot(df, color=color, alpha=0.2, size=3, jitter=True, ax=ax[i], zorder=4)
@@ -400,13 +400,16 @@ class ProteinDataAnalyzer:
         ax[0].set_ylabel('TM-score of best model\n(Averaged over 23 proteins)')
         ax[0].grid(color='lightgray', linestyle='--', linewidth=0.3, zorder=-1)
         ax[0].set_title('Best TM-scores')
-        
-        ax[1].errorbar(self.rands, df5.mean(axis=0), yerr=df5.std(axis=0)/np.sqrt(23), alpha=0.8, label='Aggregate (1000 models)', color='black')
+        ax[0].set_xticklabels(labels=df1.columns, rotation=45, rotation_mode='anchor', ha='right')
+        ax[0].legend()
+
+        ax[1].errorbar(self.rands, df5.mean(axis=0), yerr=df5.std(axis=0)/np.sqrt(23), linestyle='-', alpha=0.8, label='Aggregate (1000 models)', color='black', capsize=2)
         sns.stripplot(df5, alpha=0.2, size=3, jitter=True, ax=ax[1], color='black', zorder=4)
         ax[1].scatter(self.rands, df5.mean(axis=0), marker='o', edgecolor='black', alpha=1, color='white', zorder=5)
         ax[1].set_xlabel('MSA randomization (%)')
         ax[1].set_ylabel('Model confidence')
         ax[1].grid(color='lightgray', linestyle='--', linewidth=0.3, zorder=-1)
+        ax[1].set_xticklabels(labels=df1.columns, rotation=45, rotation_mode='anchor', ha='right')
         ax[1].set_title('Model confidence')
         
         for x in ax:
@@ -414,6 +417,8 @@ class ProteinDataAnalyzer:
             x.spines['top'].set_visible(False)
         
         plt.tight_layout()
+        if save:
+            fig.savefig("bestmodels_scatter_oc23.pdf", bbox_inches='tight')
         plt.show()
     
     def plot_heatmaps(self):
