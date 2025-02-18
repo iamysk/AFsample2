@@ -52,7 +52,6 @@ Step-by-step instructions to (1) generate model ensembles (2) Analyze diversity 
 ### Ensemble generation
 Follow the steps to generate a diverse conformational ensemble for a given ```<fasta_path>```. 
 ```bash
-
 '''
 Inputs: 
 <method>: Method to run among ['afsample2', 'speachaf', 'af2', 'msasubsampling']
@@ -81,6 +80,46 @@ Other useful flags (run ```<AF_multitemplate/run_alphafold.py --help>``` for mor
 | --- | --- | --- |
 | --msa_perturbation_mode| random, profile | To choose MSA perturbation mode |
 | --use_precomputed_features| Bool| Whether to use precomputed features.pkl file |
+
+
+
+
+###  Container usage usage
+```bash
+# Docker
+docker pull kyogesh/afsample2:mark8
+
+# Docker usage
+docker run --volume <path-to-databases>:/databases \
+           --volume <path-to-inputs>:/inputs \
+           --volume <path-to-outputs>:/outputs \
+           -it kyogesh/afsample2:mark8 \
+           --method afsample2     \
+           --fasta_paths inputs/example.fasta     \
+           --flagfile inputs/flagfile.flag     \
+           --nstruct 4     \
+           --msa_rand_fraction 0.20     \
+           --model_preset=monomer     \
+           --output_dir examples/
+```
+
+```bash
+# Apptainer
+apptainer pull docker://kyogesh/afsample2:mark8
+
+# Docker usage
+apptainer run --nv -B <path-to-databases>:/databases \
+            -B <path-to-inputs>:/input \
+            -B <path-to-outputs>:/output \
+            <path-to-sif-image> \  \
+            --method afsample2 \
+            --fasta_paths inputs/example.fasta \
+            --flagfile inputs/flagfile.flag \
+            --nstruct 1 \
+            --msa_rand_fraction 0.20 \
+            --model_preset=monomer \
+            --output_dir /output \
+```
 
 ## Diversity analysis and state identification
 ```bash
