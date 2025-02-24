@@ -37,7 +37,7 @@ from alphafold.data import pipeline_multimer
 from alphafold.data import templates
 from alphafold.data.tools import hhsearch
 from alphafold.data.tools import hmmsearch
-from alphafold.model import config
+from alphafold.model import config, config_cfold
 from alphafold.model import data
 from alphafold.model import model
 from alphafold.relax import relax
@@ -104,7 +104,7 @@ flags.DEFINE_enum('db_preset', 'full_dbs',
                   'Choose preset MSA database configuration - '
                   'smaller genetic database config (reduced_dbs) or '
                   'full genetic database config  (full_dbs)')
-flags.DEFINE_enum('model_preset', 'monomer', config.MODEL_PRESETS.keys(),
+flags.DEFINE_enum('model_preset', 'monomer', list(config.MODEL_PRESETS.keys())+list(config_cfold.MODEL_PRESETS.keys()),
                   #['monomer', 'monomer_casp14', 'monomer_ptm', 'multimer', 'multimer_v1', 'multimer_v2', 'multimer_v3'],
                   'Choose preset model configuration - the monomer model, '
                   'the monomer model with extra ensembling, monomer model with '
@@ -579,13 +579,21 @@ def main(argv):
     data_pipeline = monomer_data_pipeline
 
   model_runners = {}
-  model_names = config.MODEL_PRESETS[FLAGS.model_preset]
+  if FLAGS.model_preset=='cfold_monomer':
+    model_names = config_cfold.MODEL_PRESETS[FLAGS.model_preset]
+    print(model_names)
+  else:
+    model_names = config.MODEL_PRESETS[FLAGS.model_preset]
   if FLAGS.models_to_use:
     model_names =[m for m in model_names if m in FLAGS.models_to_use]
   if len(model_names)==0:
     raise ValueError(f'No models to run: {FLAGS.models_to_use} is not in {config.MODEL_PRESETS[FLAGS.model_preset]}')
   for model_name in model_names:
-    model_config = config.model_config(model_name)
+    if FLAGS.model_preset=='cfold_monomer':
+      model_config = config_cfold.model_config(model_name)
+    else:
+      model_config = config.model_config(model_name)
+
     if run_multimer_system:
       model_config.model.num_ensemble_eval = num_ensemble
       if FLAGS.cross_chain_templates:
@@ -607,7 +615,8 @@ def main(argv):
     logging.info(f'Setting dropout to {model_config.model.global_config.eval_dropout}')
     model_params = data.get_model_haiku_params(
         model_name=model_name, data_dir=FLAGS.data_dir)
-    model_runner = model.RunModel(model_config, model_params)
+    
+    model_runner = model.RunModel(model_config, model_params, cfold=True)
 
     if FLAGS.method=='msasubsampling':
       # MSA subsampling implementaion (https://elifesciences.org/articles/75751
@@ -619,7 +628,6 @@ def main(argv):
     else:
       for i in range(FLAGS.nstruct_start, num_predictions_per_model+1):
         model_runners[f'{model_name}_pred_{i}'] = model_runner
-
   logging.info('Have %d models: %s', len(model_runners),
                list(model_runners.keys()))
 
