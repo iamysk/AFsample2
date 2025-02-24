@@ -18,6 +18,7 @@ import enum
 import json
 import os
 import pathlib
+from pathlib import Path
 import pickle
 import random
 import shutil
@@ -165,7 +166,7 @@ flags.DEFINE_boolean('cross_chain_templates_only', False, 'Whether to include cr
 flags.DEFINE_boolean('separate_homomer_msas', False, 'Whether to force separate processing of homomer MSAs')
 flags.DEFINE_list('models_to_use', None, 'specify which models in model_preset that should be run')
 flags.DEFINE_float('msa_rand_fraction', 0, 'Level of MSA randomization (0-1)', lower_bound=0, upper_bound=1)
-flags.DEFINE_enum('method', 'afsample2', ['afsample2', 'speachaf', 'af2', 'msasubsampling'], 'Choose method from <afsample2, speachaf, af2>')
+flags.DEFINE_enum('method', 'afsample2', ['afsample2', 'speachaf', 'af2', 'msasubsampling', 'cfold'], 'Choose method from <afsample2, speachaf, af2, cfold>')
 flags.DEFINE_enum('msa_perturbation_mode', 'random', ['random', 'profile'], 'msa_perturbation_mode')
 flags.DEFINE_string('msa_perturbation_profile', None, 'A file containing the frequency for the residues that could be randomized')
 flags.DEFINE_boolean('use_precomputed_features', False, 'Whether to use precomputed msafeatures')
@@ -244,6 +245,18 @@ def get_columns_to_randomize(msa, method):
       sys.exit()
   return columns_to_randomize
 
+def display_perturbations(residue_indices, protein_length, chunk_size=50):
+  protein_representation = ['-' for _ in range(protein_length)]
+  for pos in residue_indices:
+      protein_representation[pos] = '*'
+  
+  logging.info("Protein sequence (Perturbed positions marked with '*'):")
+  for i in range(0, protein_length, chunk_size):
+      chunk = protein_representation[i:i + chunk_size]
+      logging.info(f"{i:3}-{i+chunk_size-1:3}: {''.join(chunk)}")
+  return None
+
+
 def predict_structure(
     fasta_path: str,
     fasta_name: str,
@@ -270,19 +283,20 @@ def predict_structure(
     feature_dict = data_pipeline.process(input_fasta_path=fasta_path, msa_output_dir=msa_output_dir)
 
     timings['features'] = time.time() - t_0
-    # Kill if seq_only==True
-    if FLAGS.seq_only:
-      logging.info('Exiting since --seq_only is True... ')
-      sys.exit()
     
     # Write out features as a pickled dictionary
     features_output_path = os.path.join(output_dir, 'features.pkl')
     with open(features_output_path, 'wb') as f:
       pickle.dump(feature_dict, f, protocol=4)
+
+    # Kill if seq_only==True (after saving feature.pkl)
+    if FLAGS.seq_only:
+      logging.info('Exiting since --seq_only is True... ')
+      sys.exit()
   
   else:
     logging.info('Using precomputed msa features...')
-    with open(f'{output_dir}/msa_features.pkl', 'rb') as handle:
+    with open(f'{output_dir}/features.pkl', 'rb') as handle:
       feature_dict = pickle.load(handle)
     
     # Check feat integrity (for CFOLD)
@@ -294,20 +308,20 @@ def predict_structure(
 
   num_models = len(model_runners)
   logging.info(model_runners.keys())
-  print(feature_dict.keys())
-
+  #print(feature_dict.keys())
+  
   for model_index, (model_name, model_runner) in enumerate(model_runners.items()):
-    unrelaxed_pdb_path = os.path.join(output_dir, f'unrelaxed_{model_name}.pdb')
-    if os.path.exists(unrelaxed_pdb_path):
-      # print(f'Model exists. {unrelaxed_pdb_path}')
-      logging.info(f'Model exists. {unrelaxed_pdb_path}')
-      continue
+    # unrelaxed_pdb_path = os.path.join(output_dir, f'unrelaxed_{model_name}.pdb')
+    # if os.path.exists(unrelaxed_pdb_path):
+    #   # print(f'Model exists. {unrelaxed_pdb_path}')
+    #   logging.info(f'Model exists. {unrelaxed_pdb_path}')
+    #   continue
 
     # initialize run
     logging.info('Initializing model %s on %s', model_name, fasta_name)
     t_0 = time.time()
       
-    model_random_seed = model_index + random_seed * num_models
+    #model_random_seed = model_index + random_seed * num_models
     rand_fd = copy.deepcopy(feature_dict)
     msa = rand_fd['msa']
 
@@ -316,71 +330,105 @@ def predict_structure(
     ###################################
     # Reference for aa codes -> IDS (https://github.com/iamysk/AFsample2/blob/38fba468f5e5031e1b65481cf8fe74ffc04b2b64/AF_multitemplate/alphafold/common/residue_constants.py#L633)
     if FLAGS.method=='afsample2':
+      model_random_seed = model_index + random_seed * num_models
       logging.info(f'Running AFsample2, Substitution: X (Unknown), Randomization {FLAGS.msa_rand_fraction} %')
+      # Check is model file exists
+      Path(f"{output_dir}/{FLAGS.method}").mkdir(parents=True, exist_ok=True)
+      unrelaxed_pdb_path = os.path.join(output_dir, FLAGS.method, f'unrelaxed_{model_name}.pdb')
+      if os.path.exists(unrelaxed_pdb_path): logging.info(f'Model exists: {unrelaxed_pdb_path}'); continue
+
       columns_to_randomize = get_columns_to_randomize(msa, FLAGS.method)
-      logging.info(f'Perturbing positions {columns_to_randomize}')
+      display_perturbations(columns_to_randomize, msa.shape[1])
       for col in columns_to_randomize:
         msa[1:, col] = np.array([20]*(rand_fd['msa'].shape[0]-1))  # Replace MSA columns with X (20)
       rand_fd['msa'] = msa
 
       processed_feature_dict = model_runner.process_features(rand_fd, random_seed=model_random_seed)
+      t_0 = time.time()
+      prediction_result = model_runner.predict(processed_feature_dict, random_seed=model_random_seed)
+      timings[f'process_features_{model_name}'] = time.time() - t_0
+      logging.info(
+        'Total JAX model %s on %s predict time (includes compilation time, see --benchmark): %.1fs',
+        model_name, fasta_name, timings[f'process_features_{model_name}'])
+      
+      save_results(output_dir, model_name, prediction_result, processed_feature_dict, unrelaxed_pdb_path, model_runner, columns_to_randomize)
 
     ###################################
     # SPEACHAF
     ###################################
     elif FLAGS.method=='speachaf':
       logging.info(f'Running SPEACH_AF, Substitution: A (Alanine)')
-      assert FLAGS.msa_perturbation_mode=='profile', f'msa_perturbation_mode must be set to profile for speachaf'
-      columns_to_randomize = get_columns_to_randomize(msa, FLAGS.method)
-      logging.info(f'Perturbing positions {columns_to_randomize}')
-      for col in columns_to_randomize:
-        realcol = msa[:, col]
-        realcol[realcol != 21] = 0
-        msa[:, col] = realcol  # Replace MSA columns, including first sequence, excluding gaps (-) with A (0)
-      # randomized_array[:, col] = np.array([20]*rand_fd['msa'].shape[0])
-      # randomized_array[:, col] = np.random.randint(0, 22, size=rand_fd['msa'].shape[0])  # Randomize the selected column
+      model_random_seed = model_index + random_seed * num_models
+      # Reading all available perturbation profiles
+      if os.path.isdir(FLAGS.msa_perturbation_profile):
+        profiles = glob.glob(FLAGS.msa_perturbation_profile+f'/{fasta_name}_*.txt')
+        logging.info(f'Found {len(profiles)} perturbation profiles')
+        for i, profile in enumerate(profiles):
+          # Check if model is already predicted
+          Path(f"{output_dir}/sp{i}").mkdir(parents=True, exist_ok=True)
+          unrelaxed_pdb_path = os.path.join(f"{output_dir}/sp{i}", f'unrelaxed_{model_name}.pdb')
+          if os.path.exists(unrelaxed_pdb_path): logging.info(f'Model exists: {unrelaxed_pdb_path}'); continue
 
-      rand_fd['msa']=msa
-      processed_feature_dict = model_runner.process_features(rand_fd, random_seed=model_random_seed)
+          model_random_seed = model_index + random_seed * num_models
+          columns_to_randomize = get_columns_to_randomize(msa, profile)
+          logging.info(f'Using {profile}')
+          logging.info(f'Perturbing positions {columns_to_randomize}')
+          for col in columns_to_randomize:
+            realcol = msa[:, col]
+            realcol[realcol != 21] = 0
+            msa[:, col] = realcol  # Replace MSA columns, including first sequence, excluding gaps (-) with A (0)
 
-    ###################################
+          rand_fd['msa']=msa
+          processed_feature_dict = model_runner.process_features(rand_fd, random_seed=model_random_seed)
+          t_0 = time.time()
+          prediction_result = model_runner.predict(processed_feature_dict, random_seed=model_random_seed)
+          # make 
+          save_results(f"{output_dir}/sp{i}", model_name, prediction_result, processed_feature_dict, unrelaxed_pdb_path, model_runner, columns_to_randomize)
+      else:
+        logging.info(f'ERROR with provided profiles...')
+
+    ################################### 
     # AFvanilla
     ###################################
     elif FLAGS.method=='af2':   # No randomization
+      model_random_seed = model_index + random_seed * num_models
       logging.info(f'mNo MSA perturbation. Running at default values.\n')
       processed_feature_dict = model_runner.process_features(feature_dict, random_seed=model_random_seed)
       columns_to_randomize=None
+      t_0 = time.time()
+      prediction_result = model_runner.predict(processed_feature_dict, random_seed=model_random_seed)
+
+      unrelaxed_pdb_path = os.path.join(output_dir, f'unrelaxed_{model_name}.pdb')
+      # Check is model file exists
+      if os.path.exists(unrelaxed_pdb_path): logging.info(f'Model exists: {unrelaxed_pdb_path}'); continue
+      save_results(output_dir, model_name, prediction_result, processed_feature_dict, unrelaxed_pdb_path, model_runner, columns_to_randomize)
     
     ###################################
     # MSAsubsampling
     ###################################
     elif FLAGS.method=='msasubsampling':
-      if FLAGS.msa_rand_fraction>0:
-        logging.info(f'msa_rand_fraction overridden to 0 as method set to {FLAGS.method}')
-      # MSA subsampling implementaion (https://elifesciences.org/articles/75751
-      max_extra_msa = random.choice([16, 32, 64, 128, 256, 512, 1024, 5120])
-      model_runner.config.data.common.max_extra_msa = int(max_extra_msa)
-      model_runner.config.data.eval.max_msa_clusters = int(min(max_extra_msa/2, 512))
-      processed_feature_dict = model_runner.process_features(rand_fd, random_seed=model_random_seed)
-      
-      # logging.info('msasubsampling params adjusted (max_extra_msa, max_msa_clusters)', 
-      #              int(max_extra_msa), 
-      #              int(min(max_extra_msa/2, 512)))
+      logging.info(f'Running {FLAGS.method}')
+      # Check is model file exists
+      Path(f"{output_dir}/{FLAGS.method}").mkdir(parents=True, exist_ok=True)
+      unrelaxed_pdb_path = os.path.join(output_dir, FLAGS.method, f'unrelaxed_{model_name}.pdb')
+      if os.path.exists(unrelaxed_pdb_path): logging.info(f'Model exists: {unrelaxed_pdb_path}'); continue
+      model_random_seed = model_index + random_seed * num_models
+      processed_feature_dict = model_runner.process_features(feature_dict, random_seed=model_random_seed)
+      columns_to_randomize=None
+      t_0 = time.time()
+      prediction_result = model_runner.predict(processed_feature_dict, random_seed=model_random_seed)
+      timings[f'process_features_{model_name}'] = time.time() - t_0
+      logging.info(
+        'Total JAX model %s on %s predict time (includes compilation time, see --benchmark): %.1fs',
+        model_name, fasta_name, timings[f'process_features_{model_name}'])
+
+      columns_to_randomize=None
+      save_results(output_dir, model_name, prediction_result, processed_feature_dict, unrelaxed_pdb_path, model_runner, columns_to_randomize)
 
     else:
       logging.info(f'Incorrect method, select from ["afsample2", "speachaf", "af2"]')
       logging.info('Exiting!!')
       sys.exit(1)
-
-    timings[f'process_features_{model_name}'] = time.time() - t_0
-
-    t_0 = time.time()
-    prediction_result = model_runner.predict(processed_feature_dict, random_seed=model_random_seed)
-    t_diff = time.time() - t_0
-    timings[f'predict_and_compile_{model_name}'] = t_diff
-    logging.info(
-        'Total JAX model %s on %s predict time (includes compilation time, see --benchmark): %.1fs',
-        model_name, fasta_name, t_diff)
 
     if benchmark:
       t_0 = time.time()
@@ -392,10 +440,11 @@ def predict_structure(
           'Total JAX model %s on %s predict time (excludes compilation time): %.1fs',
           model_name, fasta_name, t_diff)
 
+def save_results(output_dir, model_name, prediction_result, processed_feature_dict, unrelaxed_pdb_path, model_runner, columns_to_randomize):
     plddt = prediction_result['plddt']
 
     # Save the model outputs.
-    result_output_path = os.path.join(output_dir, f'result_{model_name}.pkl')
+    result_output_path = os.path.join(output_dir, FLAGS.method, f'result_{model_name}.pkl')
     # Remove jax dependency from results.
     np_prediction_result = _jnp_to_np(dict(prediction_result))
 
@@ -437,12 +486,7 @@ def predict_structure(
       f.write(unrelaxed_pdb)
     f.close()
 
-  # # Save rand column indices
-  # with open(f'{output_dir}/{mtu}_rand_indices.pkl', 'wb') as f:
-  #   pickle.dump(rand_indices, f)
-  # f.close()
-
-  logging.info('Final timings for %s: %s', fasta_name, timings)
+    return None
 
 def main(argv):
   if len(argv) > 1:
@@ -564,8 +608,17 @@ def main(argv):
     model_params = data.get_model_haiku_params(
         model_name=model_name, data_dir=FLAGS.data_dir)
     model_runner = model.RunModel(model_config, model_params)
-    for i in range(FLAGS.nstruct_start, num_predictions_per_model+1):
-      model_runners[f'{model_name}_pred_{i}'] = model_runner
+
+    if FLAGS.method=='msasubsampling':
+      # MSA subsampling implementaion (https://elifesciences.org/articles/75751
+      for max_extra_msa in [16, 32, 64, 128, 256, 512, 1024, 5120]:
+        for i in range(FLAGS.nstruct_start, int((num_predictions_per_model+1)/8)):
+          model_runner.config.data.common.max_extra_msa = int(max_extra_msa)
+          model_runner.config.data.eval.max_msa_clusters = int(min(max_extra_msa/2, 512))
+          model_runners[f'{model_name}_pred_{i}_{max_extra_msa}'] = model_runner
+    else:
+      for i in range(FLAGS.nstruct_start, num_predictions_per_model+1):
+        model_runners[f'{model_name}_pred_{i}'] = model_runner
 
   logging.info('Have %d models: %s', len(model_runners),
                list(model_runners.keys()))
