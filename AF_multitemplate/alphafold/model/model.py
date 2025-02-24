@@ -18,7 +18,7 @@ from typing import Any, Mapping, Optional, Union
 from absl import logging
 from alphafold.common import confidence
 from alphafold.model import features
-from alphafold.model import modules
+from alphafold.model import modules, modules_cfold
 from alphafold.model import modules_multimer
 import haiku as hk
 import jax
@@ -66,10 +66,12 @@ class RunModel:
 
   def __init__(self,
                config: ml_collections.ConfigDict,
-               params: Optional[Mapping[str, Mapping[str, np.ndarray]]] = None):
+               params: Optional[Mapping[str, Mapping[str, np.ndarray]]] = None,
+               cfold=False):
     self.config = config
     self.params = params
     self.multimer_mode = config.model.global_config.multimer_mode
+    self.cfold = cfold
 
     if self.multimer_mode:
       def _forward_fn(batch):
@@ -79,7 +81,10 @@ class RunModel:
             is_training=False)
     else:
       def _forward_fn(batch):
-        model = modules.AlphaFold(self.config.model)
+        if self.cfold:
+          model = modules_cfold.AlphaFold(self.config.model)
+        else:
+          model = modules.AlphaFold(self.config.model)
         return model(
             batch,
             is_training=False,

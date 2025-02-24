@@ -97,12 +97,15 @@ def flat_params_to_haiku(params: Mapping[str, np.ndarray]) -> hk.Params:
   hk_params = {}
   for path, array in params.items():
     scope, name = path.split('//')
+    print(scope, name)
     if scope not in hk_params:
       hk_params[scope] = {}
     hk_params[scope][name] = jnp.array(array)
-
+  sys.exit()
   return hk_params
 
+def flat_params_to_haiku_cfold(params: Mapping[str, np.ndarray]) -> hk.Params:
+  return params
 
 def padding_consistent_rng(f):
   """Modify any element-wise random function to be consistent with padding.
