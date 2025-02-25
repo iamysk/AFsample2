@@ -397,8 +397,14 @@ def predict_structure(
       columns_to_randomize=None
       t_0 = time.time()
       prediction_result = model_runner.predict(processed_feature_dict, random_seed=model_random_seed)
+      
+      # Log timings
+      timings[f'process_features_{model_name}'] = time.time() - t_0
+      logging.info(
+        'Total JAX model %s on %s predict time (includes compilation time, see --benchmark): %.1fs',
+        model_name, fasta_name, timings[f'process_features_{model_name}'])
 
-      unrelaxed_pdb_path = os.path.join(output_dir, f'unrelaxed_{model_name}.pdb')
+      unrelaxed_pdb_path = os.path.join(output_dir, FLAGS.method, f'unrelaxed_{model_name}.pdb')
       # Check is model file exists
       if os.path.exists(unrelaxed_pdb_path): logging.info(f'Model exists: {unrelaxed_pdb_path}'); continue
       save_results(output_dir, model_name, prediction_result, processed_feature_dict, unrelaxed_pdb_path, model_runner, columns_to_randomize)
@@ -417,6 +423,8 @@ def predict_structure(
       columns_to_randomize=None
       t_0 = time.time()
       prediction_result = model_runner.predict(processed_feature_dict, random_seed=model_random_seed)
+
+      # Log timings
       timings[f'process_features_{model_name}'] = time.time() - t_0
       logging.info(
         'Total JAX model %s on %s predict time (includes compilation time, see --benchmark): %.1fs',
