@@ -37,8 +37,7 @@ def get_model_haiku_params(model_name: str, data_dir: str) -> hk.Params:
     with open(path, 'rb') as f:
       params = np.load(io.BytesIO(f.read()), allow_pickle=True)
     
-    params_ = rename_keys(params)
-    #print(params_.keys())
+    #params_ = rename_keys(params)
     return utils.flat_params_to_haiku_cfold(params)
   else:
     path = os.path.join(data_dir, 'params', f'params_{model_name}.npz')
