@@ -38,6 +38,7 @@ from alphafold.data import templates
 from alphafold.data.tools import hhsearch
 from alphafold.data.tools import hmmsearch
 from alphafold.model import config
+from alphafold.model import config_cfold
 from alphafold.model import data
 from alphafold.model import model
 from alphafold.relax import relax
@@ -104,7 +105,7 @@ flags.DEFINE_enum('db_preset', 'full_dbs',
                   'Choose preset MSA database configuration - '
                   'smaller genetic database config (reduced_dbs) or '
                   'full genetic database config  (full_dbs)')
-flags.DEFINE_enum('model_preset', 'monomer', config.MODEL_PRESETS.keys(),
+flags.DEFINE_enum('model_preset', 'monomer', list(config.MODEL_PRESETS.keys())+list(config_cfold.MODEL_PRESETS.keys()),
                   #['monomer', 'monomer_casp14', 'monomer_ptm', 'multimer', 'multimer_v1', 'multimer_v2', 'multimer_v3'],
                   'Choose preset model configuration - the monomer model, '
                   'the monomer model with extra ensembling, monomer model with '
@@ -166,7 +167,7 @@ flags.DEFINE_boolean('cross_chain_templates_only', False, 'Whether to include cr
 flags.DEFINE_boolean('separate_homomer_msas', False, 'Whether to force separate processing of homomer MSAs')
 flags.DEFINE_list('models_to_use', None, 'specify which models in model_preset that should be run')
 flags.DEFINE_float('msa_rand_fraction', 0, 'Level of MSA randomization (0-1)', lower_bound=0, upper_bound=1)
-flags.DEFINE_enum('method', 'afsample2', ['afsample2', 'speachaf', 'af2', 'msasubsampling', 'cfold'], 'Choose method from <afsample2, speachaf, af2, cfold>')
+flags.DEFINE_enum('method', 'afsample2', ['afsample2', 'speachaf', 'af2', 'msasubsampling', 'afsample'], 'Choose method from <afsample2, speachaf, af2')
 flags.DEFINE_enum('msa_perturbation_mode', 'random', ['random', 'profile'], 'msa_perturbation_mode')
 flags.DEFINE_string('msa_perturbation_profile', None, 'A file containing the frequency for the residues that could be randomized')
 flags.DEFINE_boolean('use_precomputed_features', False, 'Whether to use precomputed msafeatures')
@@ -390,17 +391,23 @@ def predict_structure(
     ################################### 
     # AFvanilla
     ###################################
-    elif FLAGS.method=='af2':   # No randomization
+    elif FLAGS.method in ('af2', 'afsample'):   # No randomization
+      unrelaxed_pdb_path = os.path.join(output_dir, FLAGS.method, f'unrelaxed_{model_name}.pdb')
+      # Check is model file exists
+      #if os.path.exists(unrelaxed_pdb_path): logging.info(f'Model exists: {unrelaxed_pdb_path}'); continue
       model_random_seed = model_index + random_seed * num_models
+      # model_random_seed = 1000
       logging.info(f'mNo MSA perturbation. Running at default values.\n')
       processed_feature_dict = model_runner.process_features(feature_dict, random_seed=model_random_seed)
       columns_to_randomize=None
       t_0 = time.time()
       prediction_result = model_runner.predict(processed_feature_dict, random_seed=model_random_seed)
+      # Log timings
+      timings[f'process_features_{model_name}'] = time.time() - t_0
+      logging.info(
+        'Total JAX model %s on %s predict time (includes compilation time, see --benchmark): %.1fs',
+        model_name, fasta_name, timings[f'process_features_{model_name}'])
 
-      unrelaxed_pdb_path = os.path.join(output_dir, f'unrelaxed_{model_name}.pdb')
-      # Check is model file exists
-      if os.path.exists(unrelaxed_pdb_path): logging.info(f'Model exists: {unrelaxed_pdb_path}'); continue
       save_results(output_dir, model_name, prediction_result, processed_feature_dict, unrelaxed_pdb_path, model_runner, columns_to_randomize)
     
     ###################################
@@ -579,13 +586,22 @@ def main(argv):
     data_pipeline = monomer_data_pipeline
 
   model_runners = {}
-  model_names = config.MODEL_PRESETS[FLAGS.model_preset]
+  if FLAGS.model_preset=='cfold_monomer':
+    model_names = [config_cfold.MODEL_PRESETS[FLAGS.model_preset]]
+  else:
+    model_names = config.MODEL_PRESETS[FLAGS.model_preset]
+
   if FLAGS.models_to_use:
     model_names =[m for m in model_names if m in FLAGS.models_to_use]
   if len(model_names)==0:
     raise ValueError(f'No models to run: {FLAGS.models_to_use} is not in {config.MODEL_PRESETS[FLAGS.model_preset]}')
+  
   for model_name in model_names:
-    model_config = config.model_config(model_name)
+    if FLAGS.model_preset=='cfold_monomer':
+      model_config = config_cfold.model_config(model_name)
+    else:
+      model_config = config.model_config(model_name)
+
     if run_multimer_system:
       model_config.model.num_ensemble_eval = num_ensemble
       if FLAGS.cross_chain_templates:
@@ -604,10 +620,17 @@ def main(argv):
 
     logging.info(f'Setting max_recycles to {model_config.model.num_recycle}')
     logging.info(f'Setting early stop tolerance to {model_config.model.recycle_early_stop_tolerance}')
+    logging.info(f'Setting max_extra_msa to {model_config.data.common.max_extra_msa}')
+    logging.info(f'Setting max_msa_clusters to {model_config.data.eval.max_msa_clusters}')
     logging.info(f'Setting dropout to {model_config.model.global_config.eval_dropout}')
+
     model_params = data.get_model_haiku_params(
         model_name=model_name, data_dir=FLAGS.data_dir)
-    model_runner = model.RunModel(model_config, model_params)
+
+    if FLAGS.model_preset=='cfold_monomer':
+      model_runner = model.RunModel(model_config, model_params, cfold=True)
+    else:
+      model_runner = model.RunModel(model_config, model_params, cfold=False)
 
     if FLAGS.method=='msasubsampling':
       # MSA subsampling implementaion (https://elifesciences.org/articles/75751

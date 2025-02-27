@@ -103,6 +103,8 @@ def flat_params_to_haiku(params: Mapping[str, np.ndarray]) -> hk.Params:
 
   return hk_params
 
+def flat_params_to_haiku_cfold(params: Mapping[str, np.ndarray]) -> hk.Params:
+  return params
 
 def padding_consistent_rng(f):
   """Modify any element-wise random function to be consistent with padding.

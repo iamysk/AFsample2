@@ -17,7 +17,6 @@ import copy
 from alphafold.model.tf import shape_placeholders
 import ml_collections
 
-
 NUM_RES = shape_placeholders.NUM_RES
 NUM_MSA_SEQ = shape_placeholders.NUM_MSA_SEQ
 NUM_EXTRA_SEQ = shape_placeholders.NUM_EXTRA_SEQ
@@ -184,7 +183,7 @@ CONFIG = ml_collections.ConfigDict({
             'fixed_size': True,
             'subsample_templates': False,  # We want top templates.
             'masked_msa_replace_fraction': 0.15,
-            'max_msa_clusters': 128,
+            'max_msa_clusters': 512,    # Coz cfold og runs at 512
             'max_templates': 1,
             'num_ensemble': 1,
         },

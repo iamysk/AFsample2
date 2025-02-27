@@ -30,8 +30,6 @@ from alphafold.model import utils
 import haiku as hk
 import jax
 import jax.numpy as jnp
-import pdb
-
 
 def softmax_cross_entropy(logits, labels):
   """Computes softmax cross entropy given logits and one-hot class labels."""
