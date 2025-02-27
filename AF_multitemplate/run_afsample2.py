@@ -392,6 +392,7 @@ def predict_structure(
     # AFvanilla
     ###################################
     elif FLAGS.method in ('af2', 'afsample'):   # No randomization
+      Path(f"{output_dir}/{FLAGS.method}").mkdir(parents=True, exist_ok=True)
       unrelaxed_pdb_path = os.path.join(output_dir, FLAGS.method, f'unrelaxed_{model_name}.pdb')
       # Check is model file exists
       #if os.path.exists(unrelaxed_pdb_path): logging.info(f'Model exists: {unrelaxed_pdb_path}'); continue
