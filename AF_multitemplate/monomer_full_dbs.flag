@@ -6,7 +6,6 @@
 --uniref90_database_path=/proj/beyondfold/apps/alphafold_data/uniref90/uniref90.fasta
 --max_template_date=3000-01-01
 --use_gpu_relax=True
---model_preset=monomer_all
 --db_preset=full_dbs
 --pdb70_database_path=/proj/beyondfold/apps/alphafold_data/pdb70/pdb70
 --uniref30_database_path=/proj/beyondfold/apps/alphafold_data/uniclust30/UniRef30_2021_03/UniRef30_2021_03

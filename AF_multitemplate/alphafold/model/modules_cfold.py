@@ -328,8 +328,18 @@ class AlphaFold(hk.Module):
     def do_call(prev,
                 recycle_idx,
                 compute_loss=compute_loss):
-      num_ensemble = batch_size
-      ensembled_batch = batch
+      if self.config.resample_msa_in_recycling:
+        num_ensemble = batch_size // (self.config.num_recycle + 1)
+        def slice_recycle_idx(x):
+          start = recycle_idx * num_ensemble
+          size = num_ensemble
+          return jax.lax.dynamic_slice_in_dim(x, start, size, axis=0)
+        #print('SLICING BATCHES:', slice_recycle_idx, batch.keys())
+        ensembled_batch = jax.tree_map(slice_recycle_idx, batch)
+      else:
+        num_ensemble = batch_size
+        ensembled_batch = batch
+        
       non_ensembled_batch = jax.tree_map(lambda x: x, prev)
 
       return impl(

@@ -107,18 +107,19 @@ docker run --volume <path-to-databases>:/databases \
 # Apptainer
 apptainer pull docker://kyogesh/afsample2:mark8
 
-# Docker usage
-apptainer run --nv -B <path-to-databases>:/databases \
-            -B <path-to-inputs>:/input \
-            -B <path-to-outputs>:/output \
-            <path-to-sif-image> \  \
-            --method afsample2 \
-            --fasta_paths inputs/example.fasta \
-            --flagfile inputs/flagfile.flag \
-            --nstruct 1 \
-            --msa_rand_fraction 0.20 \
-            --model_preset=monomer \
-            --output_dir /output \
+apptainer run --nv \
+    -B <database_path>:/databases \
+    -B examples/:/input \
+    -B AF_multitemplate:/app/alphafold/AF_multitemplate \
+    afsample2_mark8.sif \
+    --method afsample2 \
+    --fasta_paths /input/P31133/P31133.fasta \
+    --flagfile /app/alphafold/AF_multitemplate/monomer_dbs_full_dbs_container.flag \
+    --nstruct 10 \
+    --model_preset monomer \
+    --output_dir /input/ \
+    --use_precomputed_features=True \
+    --dropout=True
 ```
 
 ## Diversity analysis and state identification
