@@ -24,10 +24,18 @@ import numpy as np
 
 def get_model_haiku_params(model_name: str, data_dir: str) -> hk.Params:
   """Get the Haiku parameters from a model name."""
+  print('MODEL NAME', model_name)
+  if model_name=='cfold':
+    path = os.path.join(data_dir, 'params', f'params_{model_name}.npy')
+    print('params path', path)
+    with open(path, 'rb') as f:
+      params = np.load(f, allow_pickle=True)
+    return utils.flat_params_to_haiku_cfold(params)
 
-  path = os.path.join(data_dir, 'params', f'params_{model_name}.npz')
+  else:
+    path = os.path.join(data_dir, 'params', f'params_{model_name}.npz')
+    with open(path, 'rb') as f:
+      params = np.load(io.BytesIO(f.read()), allow_pickle=False)
 
-  with open(path, 'rb') as f:
-    params = np.load(io.BytesIO(f.read()), allow_pickle=False)
 
-  return utils.flat_params_to_haiku(params)
+    return utils.flat_params_to_haiku(params)

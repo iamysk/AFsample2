@@ -20,6 +20,7 @@ from alphafold.common import confidence
 from alphafold.model import features
 from alphafold.model import modules
 from alphafold.model import modules_multimer
+from alphafold.model import modules_cfold
 import haiku as hk
 import jax
 import ml_collections
@@ -66,10 +67,12 @@ class RunModel:
 
   def __init__(self,
                config: ml_collections.ConfigDict,
-               params: Optional[Mapping[str, Mapping[str, np.ndarray]]] = None):
+               params: Optional[Mapping[str, Mapping[str, np.ndarray]]] = None,
+               cfold=False):
     self.config = config
     self.params = params
     self.multimer_mode = config.model.global_config.multimer_mode
+    self.cfold = cfold
 
     if self.multimer_mode:
       def _forward_fn(batch):
@@ -77,6 +80,16 @@ class RunModel:
         return model(
             batch,
             is_training=False)
+            
+    elif self.cfold:
+      def _forward_fn(batch):
+        model = modules_cfold.AlphaFold(self.config.model)
+        return model(
+            batch,
+            is_training=False,
+            compute_loss=False,
+            ensemble_representations=True)
+
     else:
       def _forward_fn(batch):
         model = modules.AlphaFold(self.config.model)
