@@ -1,6 +1,5 @@
 AF_multitemplate/AF_data/
 temp/
-notebooks/
 **/__pycache__/
 *.pyc
 ROSETTA_CRASH.log

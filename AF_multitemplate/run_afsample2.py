@@ -312,12 +312,6 @@ def predict_structure(
   #print(feature_dict.keys())
   
   for model_index, (model_name, model_runner) in enumerate(model_runners.items()):
-    # unrelaxed_pdb_path = os.path.join(output_dir, f'unrelaxed_{model_name}.pdb')
-    # if os.path.exists(unrelaxed_pdb_path):
-    #   # print(f'Model exists. {unrelaxed_pdb_path}')
-    #   logging.info(f'Model exists. {unrelaxed_pdb_path}')
-    #   continue
-
     # initialize run
     logging.info('Initializing model %s on %s', model_name, fasta_name)
     t_0 = time.time()
@@ -389,17 +383,19 @@ def predict_structure(
         logging.info(f'ERROR with provided profiles...')
 
     ################################### 
-    # AFvanilla
+    # AFvanilla/AFsample/MSAsubsampling
     ###################################
-    elif FLAGS.method in ('af2', 'afsample'):   # No randomization
+    elif FLAGS.method in ('af2', 'afsample', 'msasubsampling'):   # No randomization
       Path(f"{output_dir}/{FLAGS.method}").mkdir(parents=True, exist_ok=True)
       unrelaxed_pdb_path = os.path.join(output_dir, FLAGS.method, f'unrelaxed_{model_name}.pdb')
       # Check is model file exists
-      #if os.path.exists(unrelaxed_pdb_path): logging.info(f'Model exists: {unrelaxed_pdb_path}'); continue
+      if os.path.exists(unrelaxed_pdb_path): logging.info(f'Model exists: {unrelaxed_pdb_path}'); continue
       model_random_seed = model_index + random_seed * num_models
-      # model_random_seed = 1000
       logging.info(f'mNo MSA perturbation. Running at default values.\n')
       processed_feature_dict = model_runner.process_features(feature_dict, random_seed=model_random_seed)
+      # print('processed_feature_dict')
+      # for k, v in processed_feature_dict.items():
+      #  print(k,v.shape)
       columns_to_randomize=None
       t_0 = time.time()
       prediction_result = model_runner.predict(processed_feature_dict, random_seed=model_random_seed)
@@ -408,31 +404,8 @@ def predict_structure(
       logging.info(
         'Total JAX model %s on %s predict time (includes compilation time, see --benchmark): %.1fs',
         model_name, fasta_name, timings[f'process_features_{model_name}'])
-
       save_results(output_dir, model_name, prediction_result, processed_feature_dict, unrelaxed_pdb_path, model_runner, columns_to_randomize)
     
-    ###################################
-    # MSAsubsampling
-    ###################################
-    elif FLAGS.method=='msasubsampling':
-      logging.info(f'Running {FLAGS.method}')
-      # Check is model file exists
-      Path(f"{output_dir}/{FLAGS.method}").mkdir(parents=True, exist_ok=True)
-      unrelaxed_pdb_path = os.path.join(output_dir, FLAGS.method, f'unrelaxed_{model_name}.pdb')
-      if os.path.exists(unrelaxed_pdb_path): logging.info(f'Model exists: {unrelaxed_pdb_path}'); continue
-      model_random_seed = model_index + random_seed * num_models
-      processed_feature_dict = model_runner.process_features(feature_dict, random_seed=model_random_seed)
-      columns_to_randomize=None
-      t_0 = time.time()
-      prediction_result = model_runner.predict(processed_feature_dict, random_seed=model_random_seed)
-      timings[f'process_features_{model_name}'] = time.time() - t_0
-      logging.info(
-        'Total JAX model %s on %s predict time (includes compilation time, see --benchmark): %.1fs',
-        model_name, fasta_name, timings[f'process_features_{model_name}'])
-
-      columns_to_randomize=None
-      save_results(output_dir, model_name, prediction_result, processed_feature_dict, unrelaxed_pdb_path, model_runner, columns_to_randomize)
-
     else:
       logging.info(f'Incorrect method, select from ["afsample2", "speachaf", "af2"]')
       logging.info('Exiting!!')
