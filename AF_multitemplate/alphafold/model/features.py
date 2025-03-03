@@ -39,7 +39,6 @@ def make_data_config(
 
   with cfg.unlocked():
     cfg.eval.crop_size = num_res
-
   return cfg, feature_names
 
 

@@ -147,6 +147,10 @@ class AlphaFoldIteration(hk.Module):
 
     if not ensemble_representations:
       assert ensembled_batch['seq_length'].shape[0] == 1
+    
+    # for k, v in ensembled_batch.items():
+    #   print(k,v.shape)
+    # print('ensemble_representations', ensemble_representations)
 
     def slice_batch(i):
       b = {k: v[i] for k, v in ensembled_batch.items()}
@@ -339,9 +343,14 @@ class AlphaFold(hk.Module):
       else:
         num_ensemble = batch_size
         ensembled_batch = batch
-        
+      # print('resample_msa_in_recycling', self.config.resample_msa_in_recycling)
+      # print('docall ensembled_batch')
+      # for k, v in ensembled_batch.items():
+      #  print(k,v.shape)
       non_ensembled_batch = jax.tree_map(lambda x: x, prev)
-
+      #print('non_ensembled_batch')
+      #for k, v in non_ensembled_batch.items():
+      #  print(k,v.shape)
       return impl(
           ensembled_batch=ensembled_batch,
           non_ensembled_batch=non_ensembled_batch,

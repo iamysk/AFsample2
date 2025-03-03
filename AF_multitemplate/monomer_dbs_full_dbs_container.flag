@@ -11,6 +11,5 @@
 --uniref30_database_path=/databases/uniclust30/UniRef30_2021_03/UniRef30_2021_03
 --bfd_database_path=/databases/bfd/bfd_metaclust_clu_complete_id30_c90_final_seq.sorted_opt
 --max_recycles=3
---dropout=False
 --no_templates=True
 --models_to_relax=None

@@ -97,7 +97,7 @@ class RunModel:
             batch,
             is_training=False,
             compute_loss=False,
-            ensemble_representations=True)
+            ensemble_representations=False)
 
     self.apply = jax.jit(hk.transform(_forward_fn).apply)
     self.init = jax.jit(hk.transform(_forward_fn).init)

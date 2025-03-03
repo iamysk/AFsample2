@@ -112,7 +112,7 @@ CONFIG = ml_collections.ConfigDict({
             'msa_cluster_features': True,
             'num_recycle': 3,
             'reduce_msa_clusters_by_max_templates': False,
-            'resample_msa_in_recycling': True,
+            'resample_msa_in_recycling': False,
             'template_features': [
                 'template_all_atom_positions', 'template_sum_probs',
                 'template_aatype', 'template_all_atom_masks',
@@ -405,6 +405,6 @@ CONFIG = ml_collections.ConfigDict({
             },
         },
         'num_recycle': 3,
-        'resample_msa_in_recycling': True
+        'resample_msa_in_recycling': False
     },
 })

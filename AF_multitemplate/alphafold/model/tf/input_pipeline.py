@@ -156,6 +156,9 @@ def process_tensors_from_config(tensors, data_config):
   else:
     tensors = tree.map_structure(lambda x: x[None],
                                  tensors_0)
+
+  #print('resample_msa_in_recycling', data_config.common.resample_msa_in_recycling)
+  #print(tensors)
   return tensors
 
 

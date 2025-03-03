@@ -335,7 +335,7 @@ class AlphaFold(hk.Module):
       else:
         num_ensemble = batch_size
         ensembled_batch = batch
-
+        
       non_ensembled_batch = jax.tree_map(lambda x: x, prev)     
       return impl(
           ensembled_batch=ensembled_batch,
