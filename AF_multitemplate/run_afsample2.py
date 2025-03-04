@@ -26,6 +26,7 @@ import sys
 import time
 from typing import Any, Dict, Mapping, Union
 import copy
+import glob
 
 from absl import app
 from absl import flags
@@ -200,18 +201,18 @@ def _jnp_to_np(output: Dict[str, Any]) -> Dict[str, Any]:
       output[k] = np.array(v)
   return output
 
-def read_rand_profile():
+def read_rand_profile(profile):
   msa_frac={}
-  logging.info(f'Reading msa_perturbation_profile from {FLAGS.msa_perturbation_profile}')
-  with open(FLAGS.msa_perturbation_profile,'r') as f:
+  logging.info(f'Reading msa_perturbation_profile from {profile}')
+  with open(profile,'r') as f:
     for line in f.readlines():
       (pos,frac)=line.rstrip().split()
       msa_frac[int(pos)]=float(frac)
   return msa_frac
 
-def get_columns_to_randomize(msa, method):
+def get_columns_to_randomize(msa, profile=None):
   nres = msa.shape[1]
-  if method=='afsample2':
+  if FLAGS.method=='afsample2':
     if FLAGS.msa_perturbation_mode=='random':
       if FLAGS.msa_rand_fraction:
         columns_to_randomize = np.random.choice(range(0, nres), size=int(nres*FLAGS.msa_rand_fraction), replace=False) # Without replacement
@@ -232,11 +233,11 @@ def get_columns_to_randomize(msa, method):
         logging.info(f'Error! --msa_perturbation_profile required for "profile" mode. Exiting...')
         sys.exit()
   
-  if method=='speachaf':
+  if FLAGS.method=='speachaf':
     logging.info(f'Perturbing MSA with "speachaf profile"')
     columns_to_randomize=[]
-    if FLAGS.msa_perturbation_profile!=None:
-      msa_frac = read_rand_profile()
+    if profile!=None:
+      msa_frac = read_rand_profile(profile)
       for pos in msa_frac:
         r = np.random.random()
         if msa_frac[pos]>r:
@@ -329,10 +330,14 @@ def predict_structure(
       logging.info(f'Running AFsample2, Substitution: X (Unknown), Randomization {FLAGS.msa_rand_fraction} %')
       # Check is model file exists
       Path(f"{output_dir}/{FLAGS.method}").mkdir(parents=True, exist_ok=True)
-      unrelaxed_pdb_path = os.path.join(output_dir, FLAGS.method, f'unrelaxed_{model_name}.pdb')
+      if model_runner.config.model.global_config.eval_dropout:
+        unrelaxed_pdb_path = os.path.join(output_dir, FLAGS.method, f'unrelaxed_{model_name}_rand{FLAGS.msa_rand_fraction}_dropout.pdb')
+      else:
+        unrelaxed_pdb_path = os.path.join(output_dir, FLAGS.method, f'unrelaxed_{model_name}_rand{FLAGS.msa_rand_fraction}_nodropout.pdb')
+
       if os.path.exists(unrelaxed_pdb_path): logging.info(f'Model exists: {unrelaxed_pdb_path}'); continue
 
-      columns_to_randomize = get_columns_to_randomize(msa, FLAGS.method)
+      columns_to_randomize = get_columns_to_randomize(msa)
       display_perturbations(columns_to_randomize, msa.shape[1])
       for col in columns_to_randomize:
         msa[1:, col] = np.array([20]*(rand_fd['msa'].shape[0]-1))  # Replace MSA columns with X (20)
@@ -359,9 +364,13 @@ def predict_structure(
         profiles = glob.glob(FLAGS.msa_perturbation_profile+f'/{fasta_name}_*.txt')
         logging.info(f'Found {len(profiles)} perturbation profiles')
         for i, profile in enumerate(profiles):
+          # Create outpath
+          Path(f"{output_dir}/{FLAGS.method}/sp{i}").mkdir(parents=True, exist_ok=True)
+          if model_runner.config.model.global_config.eval_dropout:
+            unrelaxed_pdb_path = os.path.join(f"{output_dir}/{FLAGS.method}/sp{i}", f'unrelaxed_{model_name}_dropout.pdb')
+          else:
+            unrelaxed_pdb_path = os.path.join(f"{output_dir}/{FLAGS.method}/sp{i}", f'unrelaxed_{model_name}_nodropout.pdb')
           # Check if model is already predicted
-          Path(f"{output_dir}/sp{i}").mkdir(parents=True, exist_ok=True)
-          unrelaxed_pdb_path = os.path.join(f"{output_dir}/sp{i}", f'unrelaxed_{model_name}.pdb')
           if os.path.exists(unrelaxed_pdb_path): logging.info(f'Model exists: {unrelaxed_pdb_path}'); continue
 
           model_random_seed = model_index + random_seed * num_models
@@ -377,8 +386,15 @@ def predict_structure(
           processed_feature_dict = model_runner.process_features(rand_fd, random_seed=model_random_seed)
           t_0 = time.time()
           prediction_result = model_runner.predict(processed_feature_dict, random_seed=model_random_seed)
-          # make 
-          save_results(f"{output_dir}/sp{i}", model_name, prediction_result, processed_feature_dict, unrelaxed_pdb_path, model_runner, columns_to_randomize)
+
+          # Log timings
+          timings[f'process_features_{model_name}'] = time.time() - t_0
+          logging.info(
+            'Total JAX model %s on %s predict time (includes compilation time, see --benchmark): %.1fs',
+            model_name, fasta_name, timings[f'process_features_{model_name}'])
+          
+          # save results 
+          save_results(f"{output_dir}/{FLAGS.method}/sp{i}", model_name, prediction_result, processed_feature_dict, unrelaxed_pdb_path, model_runner, columns_to_randomize)
       else:
         logging.info(f'ERROR with provided profiles...')
 
@@ -387,7 +403,11 @@ def predict_structure(
     ###################################
     elif FLAGS.method in ('af2', 'afsample', 'msasubsampling'):   # No randomization
       Path(f"{output_dir}/{FLAGS.method}").mkdir(parents=True, exist_ok=True)
-      unrelaxed_pdb_path = os.path.join(output_dir, FLAGS.method, f'unrelaxed_{model_name}.pdb')
+      if model_runner.config.model.global_config.eval_dropout:
+        unrelaxed_pdb_path = os.path.join(output_dir, FLAGS.method, f'unrelaxed_{model_name}_dropout.pdb')
+      else:
+        unrelaxed_pdb_path = os.path.join(output_dir, FLAGS.method, f'unrelaxed_{model_name}_nodropout.pdb')
+
       # Check is model file exists
       if os.path.exists(unrelaxed_pdb_path): logging.info(f'Model exists: {unrelaxed_pdb_path}'); continue
       model_random_seed = model_index + random_seed * num_models
@@ -424,8 +444,25 @@ def predict_structure(
 def save_results(output_dir, model_name, prediction_result, processed_feature_dict, unrelaxed_pdb_path, model_runner, columns_to_randomize):
     plddt = prediction_result['plddt']
 
-    # Save the model outputs.
-    result_output_path = os.path.join(output_dir, FLAGS.method, f'result_{model_name}.pkl')
+    # Save the model outputs
+    if FLAGS.method=='speachaf':
+      if '_dropout' in unrelaxed_pdb_path:
+        result_output_path = os.path.join(output_dir, f'result_{model_name}_dropout.pkl')
+      elif '_nodropout' in unrelaxed_pdb_path:
+        result_output_path = os.path.join(output_dir, f'result_{model_name}_nodropout.pkl')
+      else:
+        logging.info('Dropout status not passed. Exiting...')
+        sys.exit()
+
+    else:
+      if '_dropout' in unrelaxed_pdb_path:
+        result_output_path = os.path.join(output_dir, FLAGS.method, f'result_{model_name}_dropout.pkl')
+      elif '_nodropout' in unrelaxed_pdb_path:
+        result_output_path = os.path.join(output_dir, FLAGS.method, f'result_{model_name}_nodropout.pkl')
+      else:
+        logging.info('Dropout status not passed. Exiting...')
+        sys.exit()
+
     # Remove jax dependency from results.
     np_prediction_result = _jnp_to_np(dict(prediction_result))
 
@@ -613,6 +650,12 @@ def main(argv):
           model_runner.config.data.common.max_extra_msa = int(max_extra_msa)
           model_runner.config.data.eval.max_msa_clusters = int(min(max_extra_msa/2, 512))
           model_runners[f'{model_name}_pred_{i}_{max_extra_msa}'] = model_runner
+    
+    elif FLAGS.method=='speachaf':
+      profiles = glob.glob(FLAGS.msa_perturbation_profile+f'/{fasta_names[0]}_*.txt')
+      logging.info(f'Found {len(profiles)} perturbation profiles')
+      for i in range(FLAGS.nstruct_start, int((num_predictions_per_model+1)/56)):
+        model_runners[f'{model_name}_pred_{i}'] = model_runner
     else:
       for i in range(FLAGS.nstruct_start, num_predictions_per_model+1):
         model_runners[f'{model_name}_pred_{i}'] = model_runner
