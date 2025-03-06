@@ -397,11 +397,49 @@ def predict_structure(
           save_results(f"{output_dir}/{FLAGS.method}/sp{i}", model_name, prediction_result, processed_feature_dict, unrelaxed_pdb_path, model_runner, columns_to_randomize)
       else:
         logging.info(f'ERROR with provided profiles...')
+    
+    ################################### 
+    # MSAsubsampling
+    ###################################
+    elif FLAGS.method=='msasubsampling':  
+      # Set msasubsampling prarmeters for current runner
+      # Adapted form MSA subsampling implementaion (https://elifesciences.org/articles/75751
+      max_extra_msas = [16, 32, 64, 128, 256, 512, 1024, 5120]
+      region = (model_index * len(max_extra_msas)) // num_models
+      max_extra_msa = max_extra_msas[region]
+      model_runner.config.data.common.max_extra_msa = int(max_extra_msa)
+      model_runner.config.data.eval.max_msa_clusters = int(min(max_extra_msa / 2, 512))
+
+      logging.info(f'Using max_extra_msa to {model_runner.config.data.common.max_extra_msa}')
+      logging.info(f'Using max_msa_clusters to {model_runner.config.data.eval.max_msa_clusters}')
+
+      Path(f"{output_dir}/{FLAGS.method}").mkdir(parents=True, exist_ok=True)
+      if model_runner.config.model.global_config.eval_dropout:
+        unrelaxed_pdb_path = os.path.join(output_dir, FLAGS.method, f'unrelaxed_{model_name}_c{int(max_extra_msa)}_dropout.pdb')
+      else:
+        unrelaxed_pdb_path = os.path.join(output_dir, FLAGS.method, f'unrelaxed_{model_name}_c{int(max_extra_msa)}_nodropout.pdb')
+
+      # Check is model file exists
+      if os.path.exists(unrelaxed_pdb_path): logging.info(f'Model exists: {unrelaxed_pdb_path}'); continue
+      model_random_seed = model_index + random_seed * num_models
+      logging.info(f'mNo MSA perturbation. Running at default values.\n')
+      processed_feature_dict = model_runner.process_features(feature_dict, random_seed=model_random_seed)
+
+      columns_to_randomize=None
+      t_0 = time.time()
+      prediction_result = model_runner.predict(processed_feature_dict, random_seed=model_random_seed)
+      # Log timings
+      timings[f'process_features_{model_name}'] = time.time() - t_0
+      logging.info(
+        'Total JAX model %s on %s predict time (includes compilation time, see --benchmark): %.1fs',
+        model_name, fasta_name, timings[f'process_features_{model_name}'])
+      save_results(output_dir, model_name+f'_c{int(max_extra_msa)}', prediction_result, processed_feature_dict, unrelaxed_pdb_path, model_runner, columns_to_randomize)
+    
 
     ################################### 
-    # AFvanilla/AFsample/MSAsubsampling
+    # AFvanilla/AFsample
     ###################################
-    elif FLAGS.method in ('af2', 'afsample', 'msasubsampling'):   # No randomization
+    elif FLAGS.method in ('af2', 'afsample'):   # No randomization
       Path(f"{output_dir}/{FLAGS.method}").mkdir(parents=True, exist_ok=True)
       if model_runner.config.model.global_config.eval_dropout:
         unrelaxed_pdb_path = os.path.join(output_dir, FLAGS.method, f'unrelaxed_{model_name}_dropout.pdb')
@@ -643,15 +681,17 @@ def main(argv):
     else:
       model_runner = model.RunModel(model_config, model_params, cfold=False)
 
-    if FLAGS.method=='msasubsampling':
-      # MSA subsampling implementaion (https://elifesciences.org/articles/75751
-      for max_extra_msa in [16, 32, 64, 128, 256, 512, 1024, 5120]:
-        for i in range(FLAGS.nstruct_start, int((num_predictions_per_model+1)/8)):
-          model_runner.config.data.common.max_extra_msa = int(max_extra_msa)
-          model_runner.config.data.eval.max_msa_clusters = int(min(max_extra_msa/2, 512))
-          model_runners[f'{model_name}_pred_{i}_{max_extra_msa}'] = model_runner
+    # if FLAGS.method=='msasubsampling':
+    #   # MSA subsampling implementaion (https://elifesciences.org/articles/75751
+    #   for max_extra_msa in [16, 32, 64, 128, 256, 512, 1024, 5120]:
+    #     for i in range(FLAGS.nstruct_start, int((num_predictions_per_model+1)/8)):
+    #       new_config = copy.deepcopy(model_runner.config)  # Create a fresh copy
+    #       new_config.data.common.max_extra_msa = int(max_extra_msa)
+    #       new_config.data.eval.max_msa_clusters = int(min(max_extra_msa / 2, 512))
+    #       new_model_runner = model.RunModel(new_config, model_runner.params, cfold=model_runner.cfold)
+    #       model_runners[f'{model_name}_pred_{i}_{max_extra_msa}'] = new_model_runner
     
-    elif FLAGS.method=='speachaf':
+    if FLAGS.method=='speachaf':
       profiles = glob.glob(FLAGS.msa_perturbation_profile+f'/{fasta_names[0]}_*.txt')
       logging.info(f'Found {len(profiles)} perturbation profiles')
       for i in range(FLAGS.nstruct_start, int((num_predictions_per_model+1)/56)):
