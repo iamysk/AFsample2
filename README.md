@@ -6,9 +6,8 @@ Introducing a way to induce diversity in the AF2 ensemble by spanning the confor
 
 AFsample2 is a generative protein structure prediction system based on AF2 that is able to induce significant conformational diversity for a given protein.
 
-See article preprint (in press Nat. Comm. Bio.):
-[AFsample2: Predicting multiple conformations and ensembles with AlphaFold2](https://www.biorxiv.org/content/10.1101/2024.05.28.596195v1)
-
+See article:
+[AFsample2 predicts multiple conformations and ensembles with AlphaFold2](https://doi.org/10.1038/s42003-025-07791-9)
 
 Related datasets available at Zenodo
 
