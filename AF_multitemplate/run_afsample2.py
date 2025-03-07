@@ -276,14 +276,14 @@ def predict_structure(
   if not os.path.exists(output_dir):
     os.makedirs(output_dir)
   msa_output_dir = os.path.join(output_dir, 'msas')
-  if not os.path.exists(msa_output_dir):
-    os.makedirs(msa_output_dir)
 
   # Get features.
   t_0 = time.time()
   if not FLAGS.use_precomputed_features:
-    feature_dict = data_pipeline.process(input_fasta_path=fasta_path, msa_output_dir=msa_output_dir)
+    if not os.path.exists(msa_output_dir):
+      os.makedirs(msa_output_dir)
 
+    feature_dict = data_pipeline.process(input_fasta_path=fasta_path, msa_output_dir=msa_output_dir)
     timings['features'] = time.time() - t_0
     
     # Write out features as a pickled dictionary
@@ -298,7 +298,7 @@ def predict_structure(
   
   else:
     logging.info('Using precomputed msa features...')
-    with open(f'{output_dir}/features.pkl', 'rb') as handle:
+    with open(f'{output_dir}/msa_features.pkl', 'rb') as handle:
       feature_dict = pickle.load(handle)
     
     # Check feat integrity (for CFOLD)
@@ -334,8 +334,10 @@ def predict_structure(
         unrelaxed_pdb_path = os.path.join(output_dir, FLAGS.method, f'unrelaxed_{model_name}_rand{FLAGS.msa_rand_fraction}_dropout.pdb')
       else:
         unrelaxed_pdb_path = os.path.join(output_dir, FLAGS.method, f'unrelaxed_{model_name}_rand{FLAGS.msa_rand_fraction}_nodropout.pdb')
-
+      
+      # Check is model file exists
       if os.path.exists(unrelaxed_pdb_path): logging.info(f'Model exists: {unrelaxed_pdb_path}'); continue
+      Path(unrelaxed_pdb_path).touch()
 
       columns_to_randomize = get_columns_to_randomize(msa)
       display_perturbations(columns_to_randomize, msa.shape[1])
