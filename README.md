@@ -6,9 +6,12 @@ Introducing a way to induce diversity in the AF2 ensemble by spanning the confor
 
 AFsample2 is a generative protein structure prediction system based on AF2 that is able to induce significant conformational diversity for a given protein.
 
-See article preprint:
-[AFsample2: Predicting multiple conformations and ensembles with AlphaFold2](https://www.biorxiv.org/content/10.1101/2024.05.28.596195v1)
+See article:
+[AFsample2 predicts multiple conformations and ensembles with AlphaFold2](https://doi.org/10.1038/s42003-025-07791-9)
 
+Related datasets available at Zenodo
+
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.14534088.svg)](https://doi.org/10.5281/zenodo.14534088)
 
 ## Installation
 
@@ -176,7 +179,7 @@ python src/analyse_models.py --method afsample2 --protein 8E6Y --afout_path exam
 
 ## Datasets and reproducibility
 
-All data and scripts required to generate the plots in the manuscript are provided [here](https://zenodo.org/records/14534088?preview=1&token=eyJhbGciOiJIUzUxMiJ9.eyJpZCI6IjY0MGY1OThlLWIxN2QtNDNmNy05NGE0LTg1NWFiYzE3MTIyNSIsImRhdGEiOnt9LCJyYW5kb20iOiI4NmY5MDU5NjQ3MWQyZmFlZWE1ZWFlYmIwYjRjMGE0ZSJ9.G0VvOWpri5ehL2BephKUC0F0FoSnVuxCUalJtIPeQVkVCAnVnip6Ob89uJchmwYMpKizpAB-v30zVCTie59rww). An overview of the directory structure, along with a description of each folder and its contents is provided in the dataset page. Extract as follows.
+All data and scripts required to generate the plots in the manuscript are provided [here](https://doi.org/10.5281/zenodo.14534088). An overview of the directory structure, along with a description of each folder and its contents is provided in the dataset page. Extract as follows.
 
 ```
 tar --use-compress-program=unzstd -xvf input_datasets.tar.zst

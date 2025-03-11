@@ -88,7 +88,7 @@ class RunModel:
             batch,
             is_training=False,
             compute_loss=False,
-            ensemble_representations=True)
+            ensemble_representations=False)
 
     else:
       def _forward_fn(batch):
