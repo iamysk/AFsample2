@@ -168,7 +168,7 @@ flags.DEFINE_boolean('cross_chain_templates_only', False, 'Whether to include cr
 flags.DEFINE_boolean('separate_homomer_msas', False, 'Whether to force separate processing of homomer MSAs')
 flags.DEFINE_list('models_to_use', None, 'specify which models in model_preset that should be run')
 flags.DEFINE_float('msa_rand_fraction', 0, 'Level of MSA randomization (0-1)', lower_bound=0, upper_bound=1)
-flags.DEFINE_enum('method', 'afsample2', ['afsample2', 'speachaf', 'af2', 'msasubsampling', 'afsample'], 'Choose method from <afsample2, speachaf, af2')
+flags.DEFINE_enum('method', 'afsample2', ['afsample2', 'speachaf', 'vanilla', 'msasubsampling', 'afsample'], 'Choose method from <afsample2, speachaf, vanilla, msasubsampling, afsample>')
 flags.DEFINE_enum('msa_perturbation_mode', 'random', ['random', 'profile'], 'msa_perturbation_mode')
 flags.DEFINE_string('msa_perturbation_profile', None, 'A file containing the frequency for the residues that could be randomized')
 flags.DEFINE_boolean('use_precomputed_features', False, 'Whether to use precomputed msafeatures')
@@ -423,6 +423,8 @@ def predict_structure(
 
       # Check is model file exists
       if os.path.exists(unrelaxed_pdb_path): logging.info(f'Model exists: {unrelaxed_pdb_path}'); continue
+      Path(unrelaxed_pdb_path).touch()
+
       model_random_seed = model_index + random_seed * num_models
       logging.info(f'mNo MSA perturbation. Running at default values.\n')
       processed_feature_dict = model_runner.process_features(feature_dict, random_seed=model_random_seed)
@@ -441,7 +443,7 @@ def predict_structure(
     ################################### 
     # AFvanilla/AFsample
     ###################################
-    elif FLAGS.method in ('af2', 'afsample'):   # No randomization
+    elif FLAGS.method in ('vanilla', 'afsample'):   # No randomization
       Path(f"{output_dir}/{FLAGS.method}").mkdir(parents=True, exist_ok=True)
       if model_runner.config.model.global_config.eval_dropout:
         unrelaxed_pdb_path = os.path.join(output_dir, FLAGS.method, f'unrelaxed_{model_name}_dropout.pdb')
@@ -450,6 +452,8 @@ def predict_structure(
 
       # Check is model file exists
       if os.path.exists(unrelaxed_pdb_path): logging.info(f'Model exists: {unrelaxed_pdb_path}'); continue
+      Path(unrelaxed_pdb_path).touch()
+
       model_random_seed = model_index + random_seed * num_models
       logging.info(f'mNo MSA perturbation. Running at default values.\n')
       processed_feature_dict = model_runner.process_features(feature_dict, random_seed=model_random_seed)
@@ -467,7 +471,7 @@ def predict_structure(
       save_results(output_dir, model_name, prediction_result, processed_feature_dict, unrelaxed_pdb_path, model_runner, columns_to_randomize)
     
     else:
-      logging.info(f'Incorrect method, select from ["afsample2", "speachaf", "af2"]')
+      logging.info(f'Incorrect method, select from ["afsample2", "speachaf", "vanilla"]')
       logging.info('Exiting!!')
       sys.exit(1)
 
