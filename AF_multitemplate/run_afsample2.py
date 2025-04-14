@@ -172,6 +172,7 @@ flags.DEFINE_enum('method', 'afsample2', ['afsample2', 'speachaf', 'vanilla', 'm
 flags.DEFINE_enum('msa_perturbation_mode', 'random', ['random', 'profile'], 'msa_perturbation_mode')
 flags.DEFINE_string('msa_perturbation_profile', None, 'A file containing the frequency for the residues that could be randomized')
 flags.DEFINE_boolean('use_precomputed_features', False, 'Whether to use precomputed msafeatures')
+flags.DEFINE_string('msa_file', None, 'Use single msa-file for prediction. No databases required.')
 
 FLAGS = flags.FLAGS
 
@@ -586,59 +587,67 @@ def main(argv):
   if len(fasta_names) != len(set(fasta_names)):
     raise ValueError('All FASTA paths must have a unique basename.')
 
-  if run_multimer_system:
-    template_searcher = hmmsearch.Hmmsearch(
-        binary_path=FLAGS.hmmsearch_binary_path,
-        hmmbuild_binary_path=FLAGS.hmmbuild_binary_path,
-        database_path=FLAGS.pdb_seqres_database_path)
-    template_featurizer = templates.HmmsearchHitFeaturizer(
-        mmcif_dir=FLAGS.template_mmcif_dir,
-        max_template_date=FLAGS.max_template_date,
-        max_hits=MAX_TEMPLATE_HITS,
-        kalign_binary_path=FLAGS.kalign_binary_path,
-        release_dates_path=None,
-        obsolete_pdbs_path=FLAGS.obsolete_pdbs_path)
-  else:
-    template_searcher = hhsearch.HHSearch(
-        binary_path=FLAGS.hhsearch_binary_path,
-        databases=[FLAGS.pdb70_database_path])
-    template_featurizer = templates.HhsearchHitFeaturizer(
-        mmcif_dir=FLAGS.template_mmcif_dir,
-        max_template_date=FLAGS.max_template_date,
-        max_hits=MAX_TEMPLATE_HITS,
-        kalign_binary_path=FLAGS.kalign_binary_path,
-        release_dates_path=None,
-        obsolete_pdbs_path=FLAGS.obsolete_pdbs_path)
+  if not FLAGS.use_precomputed_features:
+    if run_multimer_system:
+      template_searcher = hmmsearch.Hmmsearch(
+          binary_path=FLAGS.hmmsearch_binary_path,
+          hmmbuild_binary_path=FLAGS.hmmbuild_binary_path,
+          database_path=FLAGS.pdb_seqres_database_path)
+      template_featurizer = templates.HmmsearchHitFeaturizer(
+          mmcif_dir=FLAGS.template_mmcif_dir,
+          max_template_date=FLAGS.max_template_date,
+          max_hits=MAX_TEMPLATE_HITS,
+          kalign_binary_path=FLAGS.kalign_binary_path,
+          release_dates_path=None,
+          obsolete_pdbs_path=FLAGS.obsolete_pdbs_path)
+    else:
+      template_searcher = hhsearch.HHSearch(
+          binary_path=FLAGS.hhsearch_binary_path,
+          databases=[FLAGS.pdb70_database_path],
+          msa_file=FLAGS.msa_file)
+      template_featurizer = templates.HhsearchHitFeaturizer(
+          mmcif_dir=FLAGS.template_mmcif_dir,
+          msa_file=FLAGS.msa_file,
+          max_template_date=FLAGS.max_template_date,
+          max_hits=MAX_TEMPLATE_HITS,
+          kalign_binary_path=FLAGS.kalign_binary_path,
+          release_dates_path=None,
+          obsolete_pdbs_path=FLAGS.obsolete_pdbs_path)
 
-  monomer_data_pipeline = pipeline.DataPipeline(
-      jackhmmer_binary_path=FLAGS.jackhmmer_binary_path,
-      hhblits_binary_path=FLAGS.hhblits_binary_path,
-      uniref90_database_path=FLAGS.uniref90_database_path,
-      mgnify_database_path=FLAGS.mgnify_database_path,
-      bfd_database_path=FLAGS.bfd_database_path,
-      uniref30_database_path=FLAGS.uniref30_database_path,
-      small_bfd_database_path=FLAGS.small_bfd_database_path,
-      template_searcher=template_searcher,
-      template_featurizer=template_featurizer,
-      use_small_bfd=use_small_bfd,
-      use_precomputed_msas=FLAGS.use_precomputed_msas,
-      mgnify_max_hits=FLAGS.mgnify_max_hits,
-      uniref_max_hits=FLAGS.uniref_max_hits,
-      bfd_max_hits=FLAGS.bfd_max_hits,
-      no_templates=FLAGS.no_templates)
-
-  if run_multimer_system:
-    num_predictions_per_model = max(FLAGS.nstruct,FLAGS.num_multimer_predictions_per_model)
-    data_pipeline = pipeline_multimer.DataPipeline(
-        monomer_data_pipeline=monomer_data_pipeline,
+    monomer_data_pipeline = pipeline.DataPipeline(
         jackhmmer_binary_path=FLAGS.jackhmmer_binary_path,
-        uniprot_database_path=FLAGS.uniprot_database_path,
+        hhblits_binary_path=FLAGS.hhblits_binary_path,
+        uniref90_database_path=FLAGS.uniref90_database_path,
+        mgnify_database_path=FLAGS.mgnify_database_path,
+        bfd_database_path=FLAGS.bfd_database_path,
+        uniref30_database_path=FLAGS.uniref30_database_path,
+        small_bfd_database_path=FLAGS.small_bfd_database_path,
+        template_searcher=template_searcher,
+        template_featurizer=template_featurizer,
+        use_small_bfd=use_small_bfd,
         use_precomputed_msas=FLAGS.use_precomputed_msas,
-        max_uniprot_hits=FLAGS.uniprot_max_hits,
-        separate_homomer_msas=FLAGS.separate_homomer_msas)
+        mgnify_max_hits=FLAGS.mgnify_max_hits,
+        uniref_max_hits=FLAGS.uniref_max_hits,
+        bfd_max_hits=FLAGS.bfd_max_hits,
+        no_templates=FLAGS.no_templates,
+        msa_file=FLAGS.msa_file)
+
+    if run_multimer_system:
+      num_predictions_per_model = max(FLAGS.nstruct,FLAGS.num_multimer_predictions_per_model)
+      data_pipeline = pipeline_multimer.DataPipeline(
+          monomer_data_pipeline=monomer_data_pipeline,
+          jackhmmer_binary_path=FLAGS.jackhmmer_binary_path,
+          uniprot_database_path=FLAGS.uniprot_database_path,
+          use_precomputed_msas=FLAGS.use_precomputed_msas,
+          max_uniprot_hits=FLAGS.uniprot_max_hits,
+          separate_homomer_msas=FLAGS.separate_homomer_msas)
+    else:
+      num_predictions_per_model = max(FLAGS.nstruct,FLAGS.num_monomer_predictions_per_model)
+      data_pipeline = monomer_data_pipeline
   else:
     num_predictions_per_model = max(FLAGS.nstruct,FLAGS.num_monomer_predictions_per_model)
-    data_pipeline = monomer_data_pipeline
+    data_pipeline = None
+    logging.info('Using precomputed MSAs, no template searcher or featurizer ')
 
   model_runners = {}
   if FLAGS.model_preset=='cfold_monomer':

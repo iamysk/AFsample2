@@ -78,13 +78,12 @@ python AF_multitemplate/run_afsample2.py --method afsample2 \
 		--output_dir examples/	
 
 ```
-Other useful flags (run ```<AF_multitemplate/run_alphafold.py --help>``` for more details)
+Other useful flags (run ```<AF_multitemplate/run_afsample2.py --help>``` for more details)
 | flag | Options | Usage |
 | --- | --- | --- |
-| --msa_perturbation_mode| random, profile | To choose MSA perturbation mode |
-| --use_precomputed_features| Bool| Whether to use precomputed features.pkl file |
-
-
+| --use_precomputed_features| Bool| Whether to use precomputed features file (msa_features.pkl). All database paths in flagfile will be ignored.|
+| --msa_file| path_to_msa | Single MSA file (e.g., .a3m from mmseqs2). All database paths in flagfile will be ignored. |
+| --msa_perturbation_mode| <random, profile> | To choose MSA perturbation mode |
 
 
 ###  Container usage usage

@@ -33,6 +33,7 @@ class HHSearch:
                *,
                binary_path: str,
                databases: Sequence[str],
+               msa_file:str,
                maxseq: int = 1_000_000):
     """Initializes the Python HHsearch wrapper.
 
@@ -52,9 +53,10 @@ class HHSearch:
     self.maxseq = maxseq
 
     for database_path in self.databases:
-      if not glob.glob(database_path + '_*'):
-        logging.error('Could not find HHsearch database %s', database_path)
-        raise ValueError(f'Could not find HHsearch database {database_path}')
+      if not msa_file:
+        if not glob.glob(database_path + '_*'):
+          logging.error('Could not find HHsearch database %s', database_path)
+          raise ValueError(f'Could not find HHsearch database {database_path}')
 
   @property
   def output_format(self) -> str:
