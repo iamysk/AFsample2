@@ -805,6 +805,7 @@ class TemplateHitFeaturizer(abc.ABC):
       mmcif_dir: str,
       max_template_date: str,
       max_hits: int,
+      msa_file: str, 
       kalign_binary_path: str,
       release_dates_path: Optional[str],
       obsolete_pdbs_path: Optional[str],
@@ -832,10 +833,11 @@ class TemplateHitFeaturizer(abc.ABC):
         * If any template is a duplicate of the query.
         * Any feature computation errors.
     """
-    self._mmcif_dir = mmcif_dir
-    if not glob.glob(os.path.join(self._mmcif_dir, '*.cif')):
-      logging.error('Could not find CIFs in %s', self._mmcif_dir)
-      raise ValueError(f'Could not find CIFs in {self._mmcif_dir}')
+    if not msa_file:
+      self._mmcif_dir = mmcif_dir
+      if not glob.glob(os.path.join(self._mmcif_dir, '*.cif')):
+        logging.error('Could not find CIFs in %s', self._mmcif_dir)
+        raise ValueError(f'Could not find CIFs in {self._mmcif_dir}')
 
     try:
       self._max_template_date = datetime.datetime.strptime(
@@ -853,11 +855,12 @@ class TemplateHitFeaturizer(abc.ABC):
     else:
       self._release_dates = {}
 
-    if obsolete_pdbs_path:
-      logging.info('Using precomputed obsolete pdbs %s.', obsolete_pdbs_path)
-      self._obsolete_pdbs = _parse_obsolete(obsolete_pdbs_path)
-    else:
-      self._obsolete_pdbs = {}
+    if not msa_file:
+      if obsolete_pdbs_path:
+        logging.info('Using precomputed obsolete pdbs %s.', obsolete_pdbs_path)
+        self._obsolete_pdbs = _parse_obsolete(obsolete_pdbs_path)
+      else:
+        self._obsolete_pdbs = {}
 
   @abc.abstractmethod
   def get_templates(
