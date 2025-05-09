@@ -1,0 +1,14 @@
+temp/
+analysis_results/
+generated_models/
+input_datasets/
+results/
+notebooks/
+*.zst
+*.mp4
+*.gif
+.dockerignore
+.git
+.gitignore
+.env
+.vscode
