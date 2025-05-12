@@ -89,13 +89,13 @@ Other useful flags (run ```<AF_multitemplate/run_afsample2.py --help>``` for mor
 ###  Container usage usage
 ```bash
 # Docker
-docker pull kyogesh/afsample2:mark8
+docker pull kyogesh/afsample2:v1.1
 
 # Docker usage
-docker run --volume <path-to-databases>:/databases \
+docker run --gpus 1 --volume <path-to-databases>:/databases \
            --volume <path-to-inputs>:/inputs \
            --volume <path-to-outputs>:/outputs \
-           -it kyogesh/afsample2:mark8 \
+           -it kyogesh/afsample2:v1.1 \
            --method afsample2     \
            --fasta_paths inputs/example.fasta     \
            --flagfile inputs/flagfile.flag     \
@@ -107,13 +107,13 @@ docker run --volume <path-to-databases>:/databases \
 
 ```bash
 # Apptainer
-apptainer pull docker://kyogesh/afsample2:mark8
+apptainer pull docker://kyogesh/afsample2:v1.1
 
 apptainer run --nv \
     -B <database_path>:/databases \
     -B examples/:/input \
     -B AF_multitemplate:/app/alphafold/AF_multitemplate \
-    afsample2_mark8.sif \
+    afsample2_v1.1.sif \
     --method afsample2 \
     --fasta_paths /input/P31133/P31133.fasta \
     --flagfile /app/alphafold/AF_multitemplate/monomer_dbs_full_dbs_container.flag \
