@@ -6,3 +6,8 @@ ROSETTA_CRASH.log
 *.pdb
 *.json
 *.pkl
+generated_models/
+input_datasets/
+analysis_results/
+results/
+src/
