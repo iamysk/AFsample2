@@ -213,7 +213,7 @@ def read_rand_profile(profile):
 
 def get_columns_to_randomize(msa, profile=None):
   nres = msa.shape[1]
-  if FLAGS.method=='afsample2':
+  if FLAGS.method in ['afsample2', 'msasubsampling']:
     if FLAGS.msa_perturbation_mode=='random':
       if FLAGS.msa_rand_fraction:
         columns_to_randomize = np.random.choice(range(0, nres), size=int(nres*FLAGS.msa_rand_fraction), replace=False) # Without replacement
@@ -225,7 +225,7 @@ def get_columns_to_randomize(msa, profile=None):
       logging.info(f'Perturbing MSA with custom profile')
       columns_to_randomize=[]
       if FLAGS.msa_perturbation_profile!=None:
-        msa_frac = read_rand_profile()
+        msa_frac = read_rand_profile(profile)
         for pos in msa_frac:
           r = np.random.random()
           if msa_frac[pos]>r:
@@ -418,19 +418,29 @@ def predict_structure(
 
       Path(f"{output_dir}/{FLAGS.method}").mkdir(parents=True, exist_ok=True)
       if model_runner.config.model.global_config.eval_dropout:
-        unrelaxed_pdb_path = os.path.join(output_dir, FLAGS.method, f'unrelaxed_{model_name}_c{int(max_extra_msa)}_dropout.pdb')
+        unrelaxed_pdb_path = os.path.join(output_dir, FLAGS.method, f'unrelaxed_{model_name}_c{int(max_extra_msa)}_rand{FLAGS.msa_rand_fraction}_dropout.pdb')
       else:
-        unrelaxed_pdb_path = os.path.join(output_dir, FLAGS.method, f'unrelaxed_{model_name}_c{int(max_extra_msa)}_nodropout.pdb')
+        unrelaxed_pdb_path = os.path.join(output_dir, FLAGS.method, f'unrelaxed_{model_name}_c{int(max_extra_msa)}_rand{FLAGS.msa_rand_fraction}_nodropout.pdb')
 
       # Check is model file exists
       if os.path.exists(unrelaxed_pdb_path): logging.info(f'Model exists: {unrelaxed_pdb_path}'); continue
       Path(unrelaxed_pdb_path).touch()
 
       model_random_seed = model_index + random_seed * num_models
-      logging.info(f'mNo MSA perturbation. Running at default values.\n')
-      processed_feature_dict = model_runner.process_features(feature_dict, random_seed=model_random_seed)
+      
+      if FLAGS.msa_rand_fraction:
+        logging.info(f'Running AFsample2 + MSAsubsamping, Substitution: X (Unknown), Randomization {FLAGS.msa_rand_fraction} %')
+        columns_to_randomize = get_columns_to_randomize(msa)
+        display_perturbations(columns_to_randomize, msa.shape[1])
+        for col in columns_to_randomize:
+          msa[1:, col] = np.array([20]*(rand_fd['msa'].shape[0]-1))  # Replace MSA columns with X (20)
+        rand_fd['msa'] = msa
+      else:
+        columns_to_randomize=None
+        logging.info(f'No MSA perturbation. Running at default values.\n')
 
-      columns_to_randomize=None
+      processed_feature_dict = model_runner.process_features(rand_fd, random_seed=model_random_seed)
+      
       t_0 = time.time()
       prediction_result = model_runner.predict(processed_feature_dict, random_seed=model_random_seed)
       # Log timings
@@ -438,7 +448,7 @@ def predict_structure(
       logging.info(
         'Total JAX model %s on %s predict time (includes compilation time, see --benchmark): %.1fs',
         model_name, fasta_name, timings[f'process_features_{model_name}'])
-      save_results(output_dir, model_name+f'_c{int(max_extra_msa)}', prediction_result, processed_feature_dict, unrelaxed_pdb_path, model_runner, columns_to_randomize)
+      save_results(output_dir, model_name+f'_c{int(max_extra_msa)}_rand{FLAGS.msa_rand_fraction}', prediction_result, processed_feature_dict, unrelaxed_pdb_path, model_runner, columns_to_randomize)
     
 
     ################################### 
