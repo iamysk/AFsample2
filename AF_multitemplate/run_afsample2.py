@@ -598,7 +598,7 @@ def main(argv):
     raise ValueError('All FASTA paths must have a unique basename.')
 
   if not FLAGS.use_precomputed_features:
-    if run_multimer_system:
+    if run_multimer_system: # Run multimer featurizer
       template_searcher = hmmsearch.Hmmsearch(
           binary_path=FLAGS.hmmsearch_binary_path,
           hmmbuild_binary_path=FLAGS.hmmbuild_binary_path,
@@ -609,8 +609,9 @@ def main(argv):
           max_hits=MAX_TEMPLATE_HITS,
           kalign_binary_path=FLAGS.kalign_binary_path,
           release_dates_path=None,
-          obsolete_pdbs_path=FLAGS.obsolete_pdbs_path)
-    else:
+          obsolete_pdbs_path=FLAGS.obsolete_pdbs_path,
+          msa_file=FLAGS.msa_file)
+    else: # Run monomer featurizer
       template_searcher = hhsearch.HHSearch(
           binary_path=FLAGS.hhsearch_binary_path,
           databases=[FLAGS.pdb70_database_path],
@@ -694,8 +695,8 @@ def main(argv):
 
     logging.info(f'Setting max_recycles to {model_config.model.num_recycle}')
     logging.info(f'Setting early stop tolerance to {model_config.model.recycle_early_stop_tolerance}')
-    logging.info(f'Setting max_extra_msa to {model_config.data.common.max_extra_msa}')
-    logging.info(f'Setting max_msa_clusters to {model_config.data.eval.max_msa_clusters}')
+    #logging.info(f'Setting max_extra_msa to {model_config.data.common.max_extra_msa}')
+    #logging.info(f'Setting max_msa_clusters to {model_config.data.eval.max_msa_clusters}')
     logging.info(f'Setting dropout to {model_config.model.global_config.eval_dropout}')
 
     model_params = data.get_model_haiku_params(
