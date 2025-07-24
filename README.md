@@ -98,7 +98,7 @@ docker run --gpus 1 --volume <path-to-databases>:/databases \
            -it kyogesh/afsample2:v1.1 \
            --method afsample2     \
            --fasta_paths inputs/example.fasta     \
-           --flagfile inputs/flagfile.flag     \
+           --flagfile /app/alphafold/AF_multitemplate/monomer_full_dbs.flag     \
            --nstruct 4     \
            --msa_rand_fraction 0.20     \
            --model_preset=monomer     \
@@ -116,7 +116,7 @@ apptainer run --nv \
     afsample2_v1.1.sif \
     --method afsample2 \
     --fasta_paths /input/P31133/P31133.fasta \
-    --flagfile /app/alphafold/AF_multitemplate/monomer_dbs_full_dbs_container.flag \
+    --flagfile /app/alphafold/AF_multitemplate/monomer_full_dbs.flag \
     --nstruct 10 \
     --model_preset monomer \
     --output_dir /input/ \
