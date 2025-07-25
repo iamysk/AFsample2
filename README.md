@@ -13,80 +13,22 @@ Related datasets available at Zenodo
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.14534088.svg)](https://doi.org/10.5281/zenodo.14534088)
 
-## Installation
-
-1. [Install Miniconda](https://docs.anaconda.com/free/miniconda/miniconda-install/)
-2. Setup environment
-
-```
-# Clone this repository
-git clone https://github.com/iamysk/AFsample2.git
-cd AFsample2/
-
-# install dependencies
-conda env create -n <env_name> --file=environment.yaml
-conda activate <env_name>
-python -m pip install -r requirements.txt
-```
-3. Make sure that all sequence databases are available at ```<data_path>```. Follow the official AlphaFold guide [here](https://github.com/google-deepmind/alphafold) to set up databases. 
-```bash
-cd scripts
-chmod +x download_all_data.sh
-./download_all_data.sh <data_path> reduced_dbs
-```
-
-4. [OPTIONAL] Install Rosetta suite for clustering tasks from here [Download page](https://rosettacommons.org/software/download/). Make sure that a C++ compiler is installed. 
-
-```bash
-## Optional. Ignore if compilers already installed
-$ sudo apt-get install build-essential      # install C++ compilers
-
-## Unzip tarball and compile
-tar -xvzf rosetta[releasenumber].tar.gz
-cd rosetta*/main/source
-./scons.py -j <num_cores> mode=release bin/rosetta_scripts.mpi.linuxgccrelease       # Significiantly fast with multithreading
-```
-Refer to this [guide](https://new.rosettacommons.org/demos/latest/tutorials/install_build/install_build#installing-rosetta) for further details.
 
 ## Usage
-
-Step-by-step instructions to (1) generate model ensembles (2) Analyze diversity and (3) Clustering and downstream analysis
-
-### Ensemble generation
-Follow the steps to generate a diverse conformational ensemble for a given ```<fasta_path>```. 
-```bash
-'''
-Inputs: 
-<method>: Method to run among ['afsample2', 'speachaf', 'af2', 'msasubsampling']
-<fasta_paths>: path to .fasta file
-<flagfile> : AF2 specific parameter file
-<nstruct>: Number of structures to generate
-<msa_rand_fraction>: % MSA randomization in random msa_perturbation_mode
-<models_to_use>: (Optional) AF2 model to use (model_1, model_2 ...)
-
-# Outputs:
-# <output_dir>: Path to output directory
-'''
-
-# Example usage (AFsample2)
-python AF_multitemplate/run_afsample2.py --method afsample2 \
-		--fasta_paths examples/P31133/P31133.fasta \
-		--flagfile AF_multitemplate/monomer_full_dbs.flag \
-		--nstruct 1 \
-		--msa_rand_fraction 0.20 \
-		--model_preset=monomer \
-		--output_dir examples/	
-
-```
-Other useful flags (run ```<AF_multitemplate/run_afsample2.py --help>``` for more details)
-| flag | Options | Usage |
-| --- | --- | --- |
-| --use_precomputed_features| Bool| Whether to use precomputed features file (msa_features.pkl). All database paths in flagfile will be ignored.|
-| --msa_file| path_to_msa | Single MSA file (e.g., .a3m from mmseqs2). All database paths in flagfile will be ignored. |
-| --msa_perturbation_mode| <random, profile> | To choose MSA perturbation mode |
+All possible combinations of methods that are implemented here
+| Model preset        | Method                    | Runs |
+|----------------|--------------------------------|--------|
+| Monomer | AFvanilla/AFsample        | ✅     |
+| Monomer    | AFsample2        | ✅         |
+| Monomer      | SPEACH_AF  | ✅     |
+| Monomer | MSAsubsampling        | ✅     |
+| Multimer    | AFvanilla/AFsample           |  ✅      |
+| Multimer      | AFsample2 | ✅     |
+| Multimer | SPEACH_AF       | ✅     |
+| Multimer    | MSAsubsampling           | ❌     |
 
 
-###  Container usage usage
+###  Container usage
 ```bash
 # Docker
 docker pull kyogesh/afsample2:v1.1
@@ -124,7 +66,62 @@ apptainer run --nv \
     --dropout=True
 ```
 
-## Diversity analysis and state identification
+## Manual run (Not recommended, please run with container images if possible)
+### Installation
+
+1. [Install Miniconda](https://docs.anaconda.com/free/miniconda/miniconda-install/)
+2. Setup environment
+
+```
+# Clone this repository
+git clone https://github.com/iamysk/AFsample2.git
+cd AFsample2/
+
+# install dependencies
+conda env create -n <env_name> --file=environment.yaml
+conda activate <env_name>
+python -m pip install -r requirements.txt
+```
+3. Make sure that all sequence databases are available at ```<data_path>```. Follow the official AlphaFold guide [here](https://github.com/google-deepmind/alphafold) to set up databases. 
+```bash
+cd scripts
+chmod +x download_all_data.sh
+./download_all_data.sh <data_path> reduced_dbs
+```
+
+Follow the steps to generate a diverse conformational ensemble for a given ```<fasta_path>```. 
+```bash
+'''
+Inputs: 
+<method>: Method to run among ['afsample2', 'speachaf', 'af2', 'msasubsampling']
+<fasta_paths>: path to .fasta file
+<flagfile> : AF2 specific parameter file
+<nstruct>: Number of structures to generate
+<msa_rand_fraction>: % MSA randomization in random msa_perturbation_mode
+<models_to_use>: (Optional) AF2 model to use (model_1, model_2 ...)
+
+# Outputs:
+# <output_dir>: Path to output directory
+'''
+
+# Example usage (AFsample2)
+python AF_multitemplate/run_afsample2.py --method afsample2 \
+		--fasta_paths examples/P31133/P31133.fasta \
+		--flagfile AF_multitemplate/monomer_full_dbs.flag \
+		--nstruct 1 \
+		--msa_rand_fraction 0.20 \
+		--model_preset=monomer \
+		--output_dir examples/	
+
+```
+Other useful flags (run ```<AF_multitemplate/run_afsample2.py --help>``` for more details)
+| flag | Options | Usage |
+| --- | --- | --- |
+| --use_precomputed_features| Bool| Whether to use precomputed features file (msa_features.pkl). All database paths in flagfile will be ignored.|
+| --msa_file| path_to_msa | Single MSA file (e.g., .a3m from mmseqs2). All database paths in flagfile will be ignored. |
+| --msa_perturbation_mode| <random, profile> | To choose MSA perturbation mode |
+
+# Diversity analysis and state identification
 ```bash
 '''
 Inputs: 
@@ -251,5 +248,4 @@ tar --use-compress-program=unzstd -xvf analysis_results.tar.zst
 ```
 
 ## License
-
 APACHE
