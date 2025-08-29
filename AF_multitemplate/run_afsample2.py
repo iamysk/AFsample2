@@ -167,6 +167,7 @@ flags.DEFINE_boolean('cross_chain_templates', False, 'Whether to include cross-c
 flags.DEFINE_boolean('cross_chain_templates_only', False, 'Whether to include cross-chain distances in multimer templates')
 flags.DEFINE_boolean('separate_homomer_msas', False, 'Whether to force separate processing of homomer MSAs')
 flags.DEFINE_list('models_to_use', None, 'specify which models in model_preset that should be run')
+flags.DEFINE_list('keys_to_keep',None, 'specify which keys to keep in the result.pkl file. If None, only the low-memory keys will be kept. ')
 flags.DEFINE_float('msa_rand_fraction', 0, 'Level of MSA randomization (0-1)', lower_bound=0, upper_bound=1)
 flags.DEFINE_enum('method', 'afsample2', ['afsample2', 'speachaf', 'vanilla', 'msasubsampling', 'afsample'], 'Choose method from <afsample2, speachaf, vanilla, msasubsampling, afsample>')
 flags.DEFINE_enum('msa_perturbation_mode', 'random', ['random', 'profile'], 'msa_perturbation_mode')
@@ -207,6 +208,7 @@ def read_rand_profile(profile):
   logging.info(f'Reading msa_perturbation_profile from {profile}')
   with open(profile,'r') as f:
     for line in f.readlines():
+      logging.info(f'Processing line: {line.rstrip()}')
       (pos,frac)=line.rstrip().split()
       msa_frac[int(pos)]=float(frac)
   return msa_frac
@@ -340,7 +342,7 @@ def predict_structure(
       if os.path.exists(unrelaxed_pdb_path): logging.info(f'Model exists: {unrelaxed_pdb_path}'); continue
       Path(unrelaxed_pdb_path).touch()
 
-      columns_to_randomize = get_columns_to_randomize(msa)
+      columns_to_randomize = get_columns_to_randomize(msa, profile=FLAGS.msa_perturbation_profile)
       display_perturbations(columns_to_randomize, msa.shape[1])
       for col in columns_to_randomize:
         msa[1:, col] = np.array([20]*(rand_fd['msa'].shape[0]-1))  # Replace MSA columns with X (20)
@@ -428,9 +430,9 @@ def predict_structure(
 
       model_random_seed = model_index + random_seed * num_models
       
-      if FLAGS.msa_rand_fraction:
+      if FLAGS.msa_rand_fraction or FLAGS.msa_perturbation_mode=='profile':
         logging.info(f'Running AFsample2 + MSAsubsamping, Substitution: X (Unknown), Randomization {FLAGS.msa_rand_fraction} %')
-        columns_to_randomize = get_columns_to_randomize(msa)
+        columns_to_randomize = get_columns_to_randomize(msa,profile=FLAGS.msa_perturbation_profile)
         display_perturbations(columns_to_randomize, msa.shape[1])
         for col in columns_to_randomize:
           msa[1:, col] = np.array([20]*(rand_fd['msa'].shape[0]-1))  # Replace MSA columns with X (20)
@@ -499,33 +501,41 @@ def predict_structure(
 def save_results(output_dir, model_name, prediction_result, processed_feature_dict, unrelaxed_pdb_path, model_runner, columns_to_randomize):
     plddt = prediction_result['plddt']
 
+    result_output_path=unrelaxed_pdb_path.replace('.pdb', '.pkl').replace('unrelaxed_', 'result_')
+    logging.info(f'Saving results to {result_output_path}')
+    
     # Save the model outputs
-    if FLAGS.method=='speachaf':
-      if '_dropout' in unrelaxed_pdb_path:
-        result_output_path = os.path.join(output_dir, f'result_{model_name}_dropout.pkl')
-      elif '_nodropout' in unrelaxed_pdb_path:
-        result_output_path = os.path.join(output_dir, f'result_{model_name}_nodropout.pkl')
-      else:
-        logging.info('Dropout status not passed. Exiting...')
-        sys.exit()
+    #if FLAGS.method=='speachaf':
+    #  if '_dropout' in unrelaxed_pdb_path:
+    #    result_output_path = os.path.join(output_dir, f'result_{model_name}_dropout.pkl')
+    #  elif '_nodropout' in unrelaxed_pdb_path:
+    #    result_output_path = os.path.join(output_dir, f'result_{model_name}_nodropout.pkl')
+    #  else:
+    #    logging.info('Dropout status not passed. Exiting...')
+    #    sys.exit()
 
-    else:
-      if '_dropout' in unrelaxed_pdb_path:
-        result_output_path = os.path.join(output_dir, FLAGS.method, f'result_{model_name}_dropout.pkl')
-      elif '_nodropout' in unrelaxed_pdb_path:
-        result_output_path = os.path.join(output_dir, FLAGS.method, f'result_{model_name}_nodropout.pkl')
-      else:
-        logging.info('Dropout status not passed. Exiting...')
-        sys.exit()
+    #else:
+    #  if '_dropout' in unrelaxed_pdb_path:
+    #    result_output_path = os.path.join(output_dir, FLAGS.method, f'result_{model_name}_dropout.pkl')
+    #  elif '_nodropout' in unrelaxed_pdb_path:
+    #    result_output_path = os.path.join(output_dir, FLAGS.method, f'result_{model_name}_nodropout.pkl')
+    #  else:
+    #    logging.info('Dropout status not passed. Exiting...')
+    #    sys.exit()
 
     # Remove jax dependency from results.
     np_prediction_result = _jnp_to_np(dict(prediction_result))
 
     with open(result_output_path, 'wb') as f:
       keys_to_remove=['distogram', 'experimentally_resolved', 'masked_msa','aligned_confidence_probs']
+
       # keys_to_remove=['experimentally_resolved', 'masked_msa','aligned_confidence_probs']
       for k in keys_to_remove:
+        if k in FLAGS.keys_to_keep:
+          logging.info(f'Keeping key {k} in results')
+          continue
         if k in np_prediction_result:
+          logging.info(f'Removing key {k} from results')
           del(np_prediction_result[k])
       
       if FLAGS.method=='afsample2':
