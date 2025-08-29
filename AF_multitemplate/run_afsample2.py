@@ -465,7 +465,7 @@ def predict_structure(
 
       # Check is model file exists
       if os.path.exists(unrelaxed_pdb_path): logging.info(f'Model exists: {unrelaxed_pdb_path}'); continue
-      Path(unrelaxed_pdb_path).touch()
+     #Path(unrelaxed_pdb_path).touch()
 
       model_random_seed = model_index + random_seed * num_models
       logging.info(f'mNo MSA perturbation. Running at default values.\n')
