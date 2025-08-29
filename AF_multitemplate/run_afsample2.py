@@ -227,7 +227,7 @@ def get_columns_to_randomize(msa, msa_rand_fraction=None, profile=None):
     
   else:
     logging.info(f'Using --msa_rand_fraction={msa_rand_fraction}')
-    columns_to_randomize = np.random.choice(range(0, nres), size=int(nres*FLAGS.msa_rand_fraction), replace=False) # Without replacement
+    columns_to_randomize = np.random.choice(range(0, nres), size=int(nres*msa_rand_fraction), replace=False) # Without replacement
 
   return columns_to_randomize
 
