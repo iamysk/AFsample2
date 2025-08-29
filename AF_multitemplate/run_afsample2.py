@@ -167,10 +167,11 @@ flags.DEFINE_boolean('cross_chain_templates', False, 'Whether to include cross-c
 flags.DEFINE_boolean('cross_chain_templates_only', False, 'Whether to include cross-chain distances in multimer templates')
 flags.DEFINE_boolean('separate_homomer_msas', False, 'Whether to force separate processing of homomer MSAs')
 flags.DEFINE_list('models_to_use', None, 'specify which models in model_preset that should be run')
-flags.DEFINE_list('keys_to_keep',None, 'specify which keys to keep in the result.pkl file. If None, only the low-memory keys will be kept. ')
+flags.DEFINE_list('keys_to_keep', None, 'specify which keys to keep in the result.pkl file. If None, only the low-memory keys will be kept.' \
+                                        "'distogram', 'experimentally_resolved', 'masked_msa','aligned_confidence_probs'")
 flags.DEFINE_float('msa_rand_fraction', 0, 'Level of MSA randomization (0-1)', lower_bound=0, upper_bound=1)
 flags.DEFINE_enum('method', 'afsample2', ['afsample2', 'speachaf', 'vanilla', 'msasubsampling', 'afsample'], 'Choose method from <afsample2, speachaf, vanilla, msasubsampling, afsample>')
-flags.DEFINE_enum('msa_perturbation_mode', 'random', ['random', 'profile'], 'msa_perturbation_mode')
+#flags.DEFINE_enum('msa_perturbation_mode', 'random', ['random', 'profile'], 'msa_perturbation_mode')
 flags.DEFINE_string('msa_perturbation_profile', None, 'A file containing the frequency for the residues that could be randomized')
 flags.DEFINE_boolean('use_precomputed_features', False, 'Whether to use precomputed msafeatures')
 flags.DEFINE_string('msa_file', None, 'Use single msa-file for prediction. No databases required.')
@@ -213,41 +214,21 @@ def read_rand_profile(profile):
       msa_frac[int(pos)]=float(frac)
   return msa_frac
 
-def get_columns_to_randomize(msa, profile=None):
+def get_columns_to_randomize(msa, msa_rand_fraction=None, profile=None):
   nres = msa.shape[1]
-  if FLAGS.method in ['afsample2', 'msasubsampling']:
-    if FLAGS.msa_perturbation_mode=='random':
-      if FLAGS.msa_rand_fraction:
-        columns_to_randomize = np.random.choice(range(0, nres), size=int(nres*FLAGS.msa_rand_fraction), replace=False) # Without replacement
-      else:
-        logging.info(f'Error! --msa_rand_fraction required for "{FLAGS.msa_perturbation_mode}" mode. Exiting...')
-        sys.exit()
-
-    elif FLAGS.msa_perturbation_mode=='profile':
-      logging.info(f'Perturbing MSA with custom profile')
-      columns_to_randomize=[]
-      if FLAGS.msa_perturbation_profile!=None:
-        msa_frac = read_rand_profile(profile)
-        for pos in msa_frac:
-          r = np.random.random()
-          if msa_frac[pos]>r:
-            columns_to_randomize.append(pos-1)
-      else:
-        logging.info(f'Error! --msa_perturbation_profile required for "profile" mode. Exiting...')
-        sys.exit()
-  
-  if FLAGS.method=='speachaf':
-    logging.info(f'Perturbing MSA with "speachaf profile"')
+  if profile:
+    logging.info(f'IGNORING --msa_rand_fraction {msa_rand_fraction} as profile is provided.')
     columns_to_randomize=[]
-    if profile!=None:
-      msa_frac = read_rand_profile(profile)
-      for pos in msa_frac:
+    msa_frac = read_rand_profile(profile)
+    for pos in msa_frac:
         r = np.random.random()
         if msa_frac[pos]>r:
           columns_to_randomize.append(pos-1)
-    else:
-      logging.info(f'Error! --msa_perturbation_profile required for speachaf. Exiting...')
-      sys.exit()
+    
+  else:
+    logging.info(f'Using --msa_rand_fraction={msa_rand_fraction}')
+    columns_to_randomize = np.random.choice(range(0, nres), size=int(nres*FLAGS.msa_rand_fraction), replace=False) # Without replacement
+
   return columns_to_randomize
 
 def display_perturbations(residue_indices, protein_length, chunk_size=50):
@@ -330,19 +311,28 @@ def predict_structure(
     # Reference for aa codes -> IDS (https://github.com/iamysk/AFsample2/blob/38fba468f5e5031e1b65481cf8fe74ffc04b2b64/AF_multitemplate/alphafold/common/residue_constants.py#L633)
     if FLAGS.method=='afsample2':
       model_random_seed = model_index + random_seed * num_models
-      logging.info(f'Running AFsample2, Substitution: X (Unknown), Randomization {FLAGS.msa_rand_fraction} %')
+
+      mode = 'profile' if FLAGS.msa_perturbation_profile else FLAGS.msa_rand_fraction
+
+      logging.info(f'Running AFsample2, Substitution: X (Unknown), Randomization {mode}')
       # Check is model file exists
       Path(f"{output_dir}/{FLAGS.method}").mkdir(parents=True, exist_ok=True)
-      if model_runner.config.model.global_config.eval_dropout:
-        unrelaxed_pdb_path = os.path.join(output_dir, FLAGS.method, f'unrelaxed_{model_name}_rand{FLAGS.msa_rand_fraction}_dropout.pdb')
-      else:
-        unrelaxed_pdb_path = os.path.join(output_dir, FLAGS.method, f'unrelaxed_{model_name}_rand{FLAGS.msa_rand_fraction}_nodropout.pdb')
-      
+
+      dropout_tag = "dropout" if model_runner.config.model.global_config.eval_dropout else "nodropout"
+      unrelaxed_pdb_path = os.path.join(
+          output_dir,
+          FLAGS.method,
+          f'unrelaxed_{model_name}_rand{mode}_{dropout_tag}.pdb'
+      )
+
       # Check is model file exists
       if os.path.exists(unrelaxed_pdb_path): logging.info(f'Model exists: {unrelaxed_pdb_path}'); continue
-      Path(unrelaxed_pdb_path).touch()
+      #Path(unrelaxed_pdb_path).touch()
 
-      columns_to_randomize = get_columns_to_randomize(msa, profile=FLAGS.msa_perturbation_profile)
+      columns_to_randomize = get_columns_to_randomize(msa, 
+                                                      msa_rand_fraction=FLAGS.msa_rand_fraction, 
+                                                      profile=FLAGS.msa_perturbation_profile)
+      
       display_perturbations(columns_to_randomize, msa.shape[1])
       for col in columns_to_randomize:
         msa[1:, col] = np.array([20]*(rand_fd['msa'].shape[0]-1))  # Replace MSA columns with X (20)
@@ -379,7 +369,7 @@ def predict_structure(
           if os.path.exists(unrelaxed_pdb_path): logging.info(f'Model exists: {unrelaxed_pdb_path}'); continue
 
           model_random_seed = model_index + random_seed * num_models
-          columns_to_randomize = get_columns_to_randomize(msa, profile)
+          columns_to_randomize = get_columns_to_randomize(msa, profile=profile)   # NO msa_rand_fraction in speachaf
           logging.info(f'Using {profile}')
           logging.info(f'Perturbing positions {columns_to_randomize}')
           for col in columns_to_randomize:
@@ -419,20 +409,28 @@ def predict_structure(
       logging.info(f'Using max_msa_clusters to {model_runner.config.data.eval.max_msa_clusters}')
 
       Path(f"{output_dir}/{FLAGS.method}").mkdir(parents=True, exist_ok=True)
-      if model_runner.config.model.global_config.eval_dropout:
-        unrelaxed_pdb_path = os.path.join(output_dir, FLAGS.method, f'unrelaxed_{model_name}_c{int(max_extra_msa)}_rand{FLAGS.msa_rand_fraction}_dropout.pdb')
-      else:
-        unrelaxed_pdb_path = os.path.join(output_dir, FLAGS.method, f'unrelaxed_{model_name}_c{int(max_extra_msa)}_rand{FLAGS.msa_rand_fraction}_nodropout.pdb')
+
+      mode = 'profile' if FLAGS.msa_perturbation_profile else FLAGS.msa_rand_fraction
+      dropout_tag = "dropout" if model_runner.config.model.global_config.eval_dropout else "nodropout"
+
+      unrelaxed_pdb_path = os.path.join(
+          output_dir,
+          FLAGS.method,
+          f'unrelaxed_{model_name}_c{int(max_extra_msa)}_rand{mode}_{dropout_tag}.pdb'
+      )
 
       # Check is model file exists
       if os.path.exists(unrelaxed_pdb_path): logging.info(f'Model exists: {unrelaxed_pdb_path}'); continue
-      Path(unrelaxed_pdb_path).touch()
+      #Path(unrelaxed_pdb_path).touch()
 
       model_random_seed = model_index + random_seed * num_models
       
-      if FLAGS.msa_rand_fraction or FLAGS.msa_perturbation_mode=='profile':
+      if FLAGS.msa_rand_fraction:
         logging.info(f'Running AFsample2 + MSAsubsamping, Substitution: X (Unknown), Randomization {FLAGS.msa_rand_fraction} %')
-        columns_to_randomize = get_columns_to_randomize(msa,profile=FLAGS.msa_perturbation_profile)
+        columns_to_randomize = get_columns_to_randomize(msa, 
+                                                        msa_rand_fraction=FLAGS.msa_rand_fraction, 
+                                                        profile=FLAGS.msa_perturbation_profile)
+        
         display_perturbations(columns_to_randomize, msa.shape[1])
         for col in columns_to_randomize:
           msa[1:, col] = np.array([20]*(rand_fd['msa'].shape[0]-1))  # Replace MSA columns with X (20)
@@ -527,13 +525,18 @@ def save_results(output_dir, model_name, prediction_result, processed_feature_di
     np_prediction_result = _jnp_to_np(dict(prediction_result))
 
     with open(result_output_path, 'wb') as f:
-      keys_to_remove=['distogram', 'experimentally_resolved', 'masked_msa','aligned_confidence_probs']
+      
+      if not FLAGS.keys_to_keep:  
+        keys_to_remove=['distogram', 'experimentally_resolved', 'masked_msa','aligned_confidence_probs']
+      else: 
+        keys_to_remove = list(set(keys_to_remove) - set(FLAGS.keys_to_keep))
+
 
       # keys_to_remove=['experimentally_resolved', 'masked_msa','aligned_confidence_probs']
       for k in keys_to_remove:
-        if k in FLAGS.keys_to_keep:
-          logging.info(f'Keeping key {k} in results')
-          continue
+        # if k in FLAGS.keys_to_keep:
+        #   logging.info(f'Keeping key {k} in results')
+        #   continue
         if k in np_prediction_result:
           logging.info(f'Removing key {k} from results')
           del(np_prediction_result[k])
