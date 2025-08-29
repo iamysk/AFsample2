@@ -500,7 +500,6 @@ def save_results(output_dir, model_name, prediction_result, processed_feature_di
     plddt = prediction_result['plddt']
 
     result_output_path=unrelaxed_pdb_path.replace('.pdb', '.pkl').replace('unrelaxed_', 'result_')
-    logging.info(f'Saving results to {result_output_path}')
     
     # Save the model outputs
     #if FLAGS.method=='speachaf':
@@ -525,16 +524,13 @@ def save_results(output_dir, model_name, prediction_result, processed_feature_di
     np_prediction_result = _jnp_to_np(dict(prediction_result))
 
     with open(result_output_path, 'wb') as f:
-      
-      if not FLAGS.keys_to_keep:  
-        keys_to_remove=['distogram', 'experimentally_resolved', 'masked_msa','aligned_confidence_probs']
-      else: 
+      keys_to_remove=['distogram', 'experimentally_resolved', 'masked_msa','aligned_confidence_probs']
+      if FLAGS.keys_to_keep:  
         keys_to_remove = list(set(keys_to_remove) - set(FLAGS.keys_to_keep))
-
 
       # keys_to_remove=['experimentally_resolved', 'masked_msa','aligned_confidence_probs']
       for k in keys_to_remove:
-        # if k in FLAGS.keys_to_keep:
+        # if k in FLAGS.keys_to_keep: 
         #   logging.info(f'Keeping key {k} in results')
         #   continue
         if k in np_prediction_result:
@@ -544,7 +540,11 @@ def save_results(output_dir, model_name, prediction_result, processed_feature_di
       if FLAGS.method=='afsample2':
         np_prediction_result['X_msa_indexes']=columns_to_randomize
       # np_prediction_result['perturbed_msa']=rand_fd['msa']
+      logging.info('Keys saved:')
+      logging.info(np_prediction_result.keys())
       pickle.dump(np_prediction_result, f, protocol=4)
+    
+    logging.info(f'Saved results to {result_output_path}')
 
     # Save json fle with metrics
     json_out=result_output_path+'.json'
